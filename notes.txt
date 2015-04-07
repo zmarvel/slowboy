@@ -1,17 +1,109 @@
-0x78    0111 1000   ld A, B
-0x79    0111 1001   ld A, C
-0x7a    0111 1010   ld A, D
-0x7b    0111 1011   ld A, E
-0x7c    0111 1100   ld A, H
-0x7d    0111 1101   ld A, L
-0x7e    0111 1110   ld A, (HL)
-0x7f    0111 1111   ld A, A
-
 0x40    0100 0000   ld B, B
 0x41    0100 0001   ld B, C
 0x42    0100 0010   ld B, D
 0x43    0100 0011   ld B, E
 0x44    0100 0100   ld B, H
 0x45    0100 0101   ld B, L
-0x46    0100 0110   ld B, (HL)
 0x47    0100 0111   ld B, A
+
+0x48    0100 1000   ld C, B
+0x49    0100 1001   ld C, C
+0x4a    0100 1010   ld C, D
+0x4b    0100 1011   ld C, E
+0x4c    0100 1100   ld C, H
+0x4d    0100 1101   ld C, L
+0x4f    0100 1111   ld C, A
+
+0x50    0101 0000   ld D, B
+0x51    0101 0001   ld D, C
+0x52    0101 0010   ld D, D
+0x53    0101 0011   ld D, E
+0x54    0101 0100   ld D, H
+0x55    0101 0101   ld D, L
+0x57    0101 0111   ld D, A
+
+0x58    0101 1000   ld E, B
+0x59    0101 1001   ld E, C
+0x5a    0101 1010   ld E, D
+0x5b    0101 1011   ld E, E
+0x5c    0101 1100   ld E, H
+0x5d    0101 1101   ld E, L
+0x5f    0101 1111   ld E, A
+
+0x60    0110 0000   ld H, B
+0x61    0110 0001   ld H, C
+0x62    0110 0010   ld H, D
+0x63    0110 0011   ld H, E
+0x64    0110 0100   ld H, H
+0x65    0110 0101   ld H, L
+0x67    0110 0111   ld H, A
+
+0x68    0110 1000   ld L, B
+0x69    0110 1001   ld L, C
+0x6a    0110 1010   ld L, D
+0x6b    0110 1011   ld L, E
+0x6c    0110 1100   ld L, H
+0x6d    0110 1101   ld L, L
+0x6f    0110 1111   ld L, A
+
+0x70    0111 0000   ld (HL), B
+0x71    0111 0001   ld (HL), C
+0x72    0111 0010   ld (HL), D
+0x73    0111 0011   ld (HL), E
+0x74    0111 0100   ld (HL), H
+0x75    0111 0101   ld (HL), L
+0x76    0111 0110   halt
+0x77    0111 0111   ld (HL), A
+
+0x78    0111 1000   ld A, B
+0x79    0111 1001   ld A, C
+0x7a    0111 1010   ld A, D
+0x7b    0111 1011   ld A, E
+0x7c    0111 1100   ld A, H
+0x7d    0111 1101   ld A, L
+0x7f    0111 1111   ld A, A
+
+0x46    0100 0110   ld B, (HL)
+0x4e    0100 1110   ld C, (HL)
+0x56    0101 0110   ld D, (HL)
+0x5e    0101 1110   ld E, (HL)
+0x66    0110 0110   ld H, (HL)
+0x6e    0110 1110   ld L, (HL)
+0x7e    0111 1110   ld A, (HL)
+
+0x01    0000 0001   ld BC, nn
+0x11    0001 0001   ld DE, nn
+0x21    0010 0001   ld HL, nn
+0x31    0011 0001   ld SP, nn
+
+0x02    0000 0010   ld (BC), A
+0x12    0001 0010   ld (DE), A
+0x22    0010 0010   ldi (HL), A
+0x32    0011 0010   ldd (HL), A
+
+0x06    0000 0110   ld B, n
+0x16    0001 0110   ld D, n
+0x26    0010 0110   ld H, n
+0x36    0011 0110   ld (HL), n
+
+0x0e    0000 1110   ld C, n
+0x1e    0001 1110   ld E, n
+0x2e    0001 1110   ld L, n
+0x3e    0001 1110   ld A, n
+
+0x08    0000 1000   ld (nn), SP
+
+0x0a    0000 1010   ld A, (BC)
+0x1a    0001 1010   ld A, (DE)
+0x2a    0010 1010   ldi A, (HL)
+0x3a    0010 1010   ldd A, (HL)
+
+0xe0    1110 0000   ldh (n), A
+0xf0    1111 0000   ldh A, (n)
+
+0xea    1110 1010   ld (nn), A
+0xfa    1111 1010   ld A, (nn)
+
+0xf8    1111 1000   ldhl SP, n
+0xf9    1111 1001   ld SP, HL
+

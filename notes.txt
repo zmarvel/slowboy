@@ -148,3 +148,80 @@
 0x1d    0001 1101   dec E
 0x2d    0010 1101   dec L
 0x3d    0011 1101   dec A
+
+0x80    1000 0000   add A, B
+0x81    1000 0001   add A, C
+0x82    1000 0010   add A, D
+0x83    1000 0011   add A, E
+0x84    1000 0100   add A, H
+0x85    1000 0101   add A, L
+0x86    1000 0110   add A, (HL)
+0x87    1000 0111   add A, A
+
+0x88    1000 1000   adc A, B
+0x89    1000 1001   adc A, C
+0x8a    1000 1010   adc A, D
+0x8b    1000 1011   adc A, E
+0x8c    1000 1100   adc A, H
+0x8d    1000 1101   adc A, L
+0x8e    1000 1110   adc A, (HL)
+0x8f    1000 1111   adc A, A
+
+0x90    1001 0000   sub A, B
+0x91    1001 0001   sub A, C
+0x92    1001 0010   sub A, D
+0x93    1001 0011   sub A, E
+0x94    1001 0100   sub A, H
+0x95    1001 0101   sub A, L
+0x96    1001 0110   sub A, (HL)
+0x97    1001 0111   sub A, A
+
+0x98    1001 1000   sbc A, B
+0x99    1001 1001   sbc A, C
+0x9a    1001 1010   sbc A, D
+0x9b    1001 1011   sbc A, E
+0x9c    1001 1100   sbc A, H
+0x9d    1001 1101   sbc A, L
+0x9e    1001 1110   sbc A, (HL)
+0x9f    1001 1111   sbc A, A
+
+0xa0    1010 0000   and B
+0xa1    1010 0001   and C
+0xa2    1010 0010   and D
+0xa3    1010 0011   and E
+0xa4    1010 0100   and H
+0xa5    1010 0101   and L
+0xa6    1010 0110   and (HL)
+0xa7    1010 0111   and A
+
+0xa8    1010 1000   xor B
+0xa9    1010 1001   xor C
+0xaa    1010 1010   xor D
+0xab    1010 1011   xor E
+0xac    1010 1100   xor H
+0xad    1010 1101   xor L
+0xae    1010 1110   xor (HL)
+0xaf    1010 1111   xor A
+
+0xb0    1011 0000   or B
+0xb1    1011 0001   or C
+0xb2    1011 0010   or D
+0xb3    1011 0011   or E
+0xb4    1011 0100   or H
+0xb5    1011 0101   or L
+0xb6    1011 0110   or (HL)
+0xb7    1011 0111   or A
+
+0xb8    1011 1000   cp B
+0xb9    1011 1001   cp C
+0xba    1011 1010   cp D
+0xbb    1011 1011   cp E
+0xbc    1011 1100   cp H
+0xbd    1011 1101   cp L
+0xbe    1011 1110   cp (HL)
+0xbf    1011 1111   cp A
+
+0xc0    1100 0000   ret NZ
+0xd0    1101 0000   ret NC
+
+0xc1    1100 0001   pop BC

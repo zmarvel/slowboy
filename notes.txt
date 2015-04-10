@@ -111,9 +111,6 @@
 0x00    0000 0000   nop
 0x10    0001 0000   stop
 
-0x20    0010 0000   jr NZ, n
-0x30    0010 0000   jr NC, n
-
 0x03    0000 0011   inc BC
 0x13    0001 0011   inc DE
 0x23    0010 0011   inc HL
@@ -225,3 +222,60 @@
 0xd0    1101 0000   ret NC
 
 0xc1    1100 0001   pop BC
+0xd1    1101 0001   pop DE
+0xe1    1110 0001   pop HL
+0xf1    1111 0001   pop AF
+
+0xc5    1100 0101   push BC
+0xd5    1101 0101   push DE
+0xe5    1110 0101   push HL
+0xf5    1111 0101   push AF
+
+0x20    0010 0000   jr NZ, n    ☑   relative jump
+0x30    0011 0000   jr NC, n    ☑
+
+0xc2    1100 0010   jp NZ, nn
+0xd2    1101 0010   jp NC, nn
+
+0xc3    1100 0011   jp nn
+
+0xc4    1100 0100   call NZ, nn
+0xd4    1101 0100   call NC, nn
+
+0xc6    1100 0110   add A, n
+0xd6    1101 0110   sub A, n
+0xe6    1110 0110   and n
+0xf6    1111 0110   or n
+
+0xc7    1100 0111   rst 0
+0xd7    1101 0111   rst 10
+0xe7    1110 0111   rst 20
+0xf7    1111 0111   rst 30
+
+0xc8    1100 1000   ret Z
+0xd8    1101 1000   ret C
+
+0xe8    1110 1000   add SP, d
+
+0xc9    1100 1001   ret
+0xd9    1101 1001   reti
+0xe9    1110 1001   jp (HL)
+
+0xca    1100 1010   jp Z, nn
+0xda    1101 1010   jp C, nn
+
+0xcb    1100 1011   16-BIT OPERATION
+
+0xfb    1111 1011   ei
+
+0xcc    1100 1100   call Z, nn
+0xdc    1101 1100   call C, nn
+
+0xcd    1100 1101   call nn
+
+0xce    1100 1110   adc A, n
+0xde    1101 1110   sbc A, n
+0xee    1110 1110   xor n
+0xfe    1111 1110   cp n
+
+0xcf    1100 1111   rst 8

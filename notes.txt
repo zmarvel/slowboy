@@ -114,37 +114,36 @@
 0x20    0010 0000   jr NZ, n
 0x30    0010 0000   jr NC, n
 
+0x04    0000 0100   inc B
+0x0c    0000 1100   inc C
+0x14    0001 0100   inc D
+0x1c    0001 1100   inc E
+0x24    0010 0100   inc H
+0x2c    0010 1100   inc L
+0x34    0011 0100   inc (HL)
+0x3c    0011 1100   inc A
+
 0x03    0000 0011   inc BC
 0x13    0001 0011   inc DE
 0x23    0010 0011   inc HL
 0x33    0011 0011   inc SP
 
-0x04    0000 0100   inc B
-0x14    0001 0100   inc D
-0x24    0010 0100   inc H
-0x34    0011 0100   inc (HL)
-
 0x05    0000 0101   dec B
+0x0d    0000 1101   dec C
 0x15    0001 0101   dec D
+0x1d    0001 1101   dec E
 0x25    0010 0101   dec H
+0x2d    0010 1101   dec L
 0x35    0011 0101   dec (HL)
-
-0x07    0000 0111   rlc A
-0x17    0001 0111   rl A
-0x27    0010 0111   daa
-0x37    0011 0111   scf
+0x3d    0011 1101   dec A
 
 0x0b    0000 1011   dec BC
 0x1b    0001 1011   dec DE
 0x2b    0010 1011   dec HL
 0x3b    0011 1011   dec SP
 
-0x0c    0000 1100   inc C
-0x1c    0001 1100   inc E
-0x2c    0010 1100   inc L
-0x3c    0011 1100   inc A
+0x07    0000 0111   rlc A
+0x17    0001 0111   rl A
+0x27    0010 0111   daa
+0x37    0011 0111   scf
 
-0x0d    0000 1101   dec C
-0x1d    0001 1101   dec E
-0x2d    0010 1101   dec L
-0x3d    0011 1101   dec A

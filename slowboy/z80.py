@@ -15,16 +15,17 @@ class gb_z80(object):
     instructions = {
             }
 
-    def read_register(self, hi: str, lo: str = None) -> int:
-        if lo:
-            return (registers[hi] << 8) | registers[lo]
-        return registers[hi]
+    def read_register(self, reg: str) -> int:
+        if len(reg) == 1:
+            return (registers[reg[0]] << 8) | registers[reg[1]]
+        return registers[reg]
 
-    def write_register(self, hi: str, lo: str = None, v: int):
+    def write_register(self, reg: str, v: int):
+        if len(reg) == 1
         if lo:
-            registers[hi] = v >> 8
-            registers[lo] = v & 0x0f
-        registers[hi] = v
+            registers[reg[0]] = v >> 8
+            registers[reg[1]] = v & 0x0f
+        registers[reg] = v
     
     def set_zero_flag(self):
         registers['f'] |= 0x80

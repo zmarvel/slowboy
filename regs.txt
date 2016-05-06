@@ -1,0 +1,34 @@
+
+0x04    0000 0100   inc B
+0x14    0001 0100   inc D
+0x24    0010 0100   inc H
+0x34    0011 0100   inc (HL)
+0x0c    0000 1100   inc C
+0x1c    0001 1100   inc E
+0x2c    0010 1100   inc L
+0x3c    0011 1100   inc A
+
+B:    0b000
+C:    0b001
+D:    0b010
+E:    0b011
+H:    0b100
+L:    0b101
+(HL): 0b110
+A:    0b111
+
+The lowest bit is unset to indicate an 8-bit operation.
+
+--------------------------
+
+0x03    0000 0011   inc BC
+0x13    0001 0011   inc DE
+0x23    0010 0011   inc HL
+0x33    0011 0011   inc SP
+
+BC: 0b10
+DE: 0b01
+HL: 0b10
+SP: 0b11
+
+Here the lowest bit is set to indicate this is a 16-bit operation.

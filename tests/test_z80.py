@@ -142,18 +142,35 @@ class TestZ80(unittest.TestCase):
         self.cpu.ld_reg8toreg8('A', 'C')
         self.assertEqual(self.cpu.get_reg8('C'), 6)
 
-    def test_set_reg16(self):
-        self.cpu.ld_imm16toreg16(0x1234, 'BC')
-        self.cpu.ld_imm16toreg16(0x3456, 'DE')
-        self.cpu.ld_imm16toreg16(0x5678, 'HL')
-        self.cpu.ld_imm16toreg16(0x789a, 'SP')
+    def test_ld_imm16toreg16(self):
+        self.cpu.ld_imm16toreg16(0x0123, 'BC')
+        self.cpu.ld_imm16toreg16(0x4567, 'DE')
+        self.cpu.ld_imm16toreg16(0x89ab, 'HL')
+        self.cpu.ld_imm16toreg16(0xcdef, 'SP')
 
-        self.assertEqual(self.cpu.get_reg8('B'), 0x12)
-        self.assertEqual(self.cpu.get_reg8('C'), 0x34)
-        self.assertEqual(self.cpu.get_reg8('D'), 0x34)
-        self.assertEqual(self.cpu.get_reg8('E'), 0x56)
-        self.assertEqual(self.cpu.get_reg8('H'), 0x56)
-        self.assertEqual(self.cpu.get_reg8('L'), 0x78)
-        self.assertEqual(self.cpu.get_reg16('SP'), 0x789a)
+        self.assertEqual(self.cpu.get_reg16('BC'), 0x0123)
+        self.assertEqual(self.cpu.get_reg16('DE'), 0x4567)
+        self.assertEqual(self.cpu.get_reg16('HL'), 0x89ab)
+        self.assertEqual(self.cpu.get_reg16('SP'), 0xcdef)
+
+    def test_inc_reg8(self):
+        self.cpu.set_reg8('b', 0x04)
+        self.cpu.inc_reg8('b')
+        self.assertEqual(self.cpu.get_reg8('b'), 0x05)
+
+    def test_inc_reg16(self):
+        self.cpu.set_reg16('bc', 0xee)
+        self.cpu.inc_reg16('bc')
+        self.assertEqual(self.cpu.get_reg16('bc'), 0xef)
+
+    def test_dec_reg8(self):
+        self.cpu.set_reg8('b', 0x04)
+        self.cpu.dec_reg8('b')
+        self.assertEqual(self.cpu.get_reg8('b'), 0x03)
+
+    def test_dec_reg16(self):
+        self.cpu.set_reg16('bc', 0xee)
+        self.cpu.dec_reg16('bc')
+        self.assertEqual(self.cpu.get_reg16('bc'), 0xed)
 
 

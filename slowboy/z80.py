@@ -102,6 +102,24 @@ class Z80(object):
 
         pass
 
+    def stop(self):
+        """0x10"""
+
+        raise NotImplementedError('stop')
+
+    def halt(self):
+        """0x76"""
+
+        raise NotImplementedError('halt')
+
+    def ld_imm8toreg8(self, imm8, reg8):
+        """0x06, 0x16, 0x26"""
+
+        self.set_reg8(reg8, imm8)
+
+    def ld_reg8toreg8(self, src_reg8, dest_reg8):
+        self.set_reg8(dest_reg8, self.get_reg8(src_reg8))
+
     def ld_imm16toreg16(self, imm16, reg16):
         """0x01, 0x11, 0x21, 0x31"""
 
@@ -113,32 +131,10 @@ class Z80(object):
 
         raise NotImplementedError('MMU')
 
-    def inc_reg16(self, reg16):
-        """0x03, 0x13, 0x23, 0x33"""
+    def ld_addr16toreg8(self, addr16, reg8):
+        """0x0a, 0x1a, 0x4e, 0x5e, 0x6e, 0x7e, 0x77, 0x46, 0x56, 0x66"""
 
-        self.set_reg16(reg16, self.get_reg16(reg16) + 1)
-
-    def inc_reg8(self, reg8):
-        """0x04, 0x14, 0x24, 0x34"""
-
-        self.set_reg8(reg8, self.get_reg8(reg8) + 1)
-
-    def dec_reg8(self, reg8):
-        """0x05, 0x15, 0x25, 0x35"""
-
-        self.set_reg8(reg8, self.get_reg8(reg8) - 1)
-
-    def ld_imm8toreg8(self, imm8, reg8):
-        """0x06, 0x16, 0x26"""
-
-        self.set_reg8(reg8, imm8)
-
-    def rlca(self):
-        """0x07"""
-
-        if self.registers['a'] & 0x80 == 0x80:
-            self._set_carry_flag()
-        self.set_reg8('a', (self.get_reg8('a') << 1) & 0xff) 
+        raise NotImplementedError('MMU')
 
     def ld_sptoaddr16(self, addr16):
         """0x08"""
@@ -146,62 +142,31 @@ class Z80(object):
 
         raise NotImplementedError('MMU')
 
-    def add_reg16toregHL(self, reg16):
-        """0x09, 0x19, 0x29, 0x39"""
+    def ld_imm8toaddrHL(self):
+        """0x36"""
 
-        self.set_reg16('HL', self.get_reg16('HL') + self.get_reg16(reg16))
+        raise NotImplementedError('ld (HL), imm8')
 
-    def ld_addr16toreg8(self, addr16, reg8):
-        """0x0a, 0x1a, 0x4e, 0x5e, 0x6e, 0x7e, 0x77, 0x46, 0x56, 0x66"""
+    def inc_reg8(self, reg8):
+        """0x04, 0x14, 0x24, 0x34
+        TODO: overflow, carry"""
 
-        raise NotImplementedError('MMU')
+        self.set_reg8(reg8, self.get_reg8(reg8) + 1)
+
+    def inc_reg16(self, reg16):
+        """0x03, 0x13, 0x23, 0x33"""
+
+        self.set_reg16(reg16, self.get_reg16(reg16) + 1)
+
+    def dec_reg8(self, reg8):
+        """0x05, 0x15, 0x25, 0x35"""
+
+        self.set_reg8(reg8, self.get_reg8(reg8) - 1)
 
     def dec_reg16(self, reg16):
         """0x0b, 0x1b, 0x2b, 0x3b"""
 
         self.set_reg16(reg16, self.get_reg16(reg16) - 1)
-
-    def rrca(self):
-        """0x0f"""
-
-        regA = self.get_reg8('a')
-        if regA & 0x01 == 0x01:
-            self._set_carry_flag()
-
-        self.set_reg8('a', (regA >> 1) & 0xff)
-
-    def stop(self):
-        """0x10"""
-
-        raise NotImplementedError('stop')
-
-    def rla(self):
-        """0x17"""
-
-        last_carry = self._get_carry_flag()
-
-        regA = self.get_reg8('a')
-        if regA & 0x80 == 0x80:
-            self._set_carry_flag()
-
-        self.set_reg8('a', ((self.get_reg8('a') << 1) & 0xff) | last_carry)
-    
-    def jr_condtoimm8(self, flags, imm8):
-        """0x18 -- conditionally jump forward by a signed immediate.
-        `flags` may be any of C, Z, NC, or NZ."""
-
-        raise NotImplementedError('conditional jump to 8-bit immediate')
-
-    def rra(self):
-        """0x1f"""
-
-        last_carry = self._get_carry_flag()
-
-        regA = self.get_reg8('a')
-        if regA & 0x01 == 0x01:
-            self._set_carry_flag()
-
-        self.set_reg8('a', ((self.get_reg8('a') >> 1) & 0xff) | (last_carry << 7))
 
     def inc_addrHL(self):
         """0x34"""
@@ -213,18 +178,10 @@ class Z80(object):
 
         raise NotImplementedError('dec *(HL)')
 
-    def ld_imm8toaddrHL(self):
-        """0x36"""
+    def add_reg16toregHL(self, reg16):
+        """0x09, 0x19, 0x29, 0x39"""
 
-        raise NotImplementedError('ld (HL), imm8')
-
-    def ld_reg8toreg8(self, src_reg8, dest_reg8):
-        self.set_reg8(dest_reg8, self.get_reg8(src_reg8))
-
-    def halt(self):
-        """0x76"""
-
-        raise NotImplementedError('halt')
+        self.set_reg16('HL', self.get_reg16('HL') + self.get_reg16(reg16))
 
     def add_reg8toreg8(self, src_reg8, dest_reg8):
         """0x80-0x85, 0x87-0x8d, 0x8f"""
@@ -241,3 +198,49 @@ class Z80(object):
             self.set_reg8(dest_reg8, self.get_reg8(src_reg8) - self.get_reg8(dest_reg8) - self._get_carry_flag())
         else:
             self.set_reg8(dest_reg8, self.get_reg8(src_reg8) - self.get_reg8(dest_reg8))
+
+    def rlca(self):
+        """0x07"""
+
+        if self.registers['a'] & 0x80 == 0x80:
+            self._set_carry_flag()
+        self.set_reg8('a', (self.get_reg8('a') << 1) & 0xff) 
+
+    def rla(self):
+        """0x17"""
+
+        last_carry = self._get_carry_flag()
+
+    def rrca(self):
+        """0x0f"""
+
+        regA = self.get_reg8('a')
+        if regA & 0x01 == 0x01:
+            self._set_carry_flag()
+
+        self.set_reg8('a', (regA >> 1) & 0xff)
+
+        regA = self.get_reg8('a')
+        if regA & 0x80 == 0x80:
+            self._set_carry_flag()
+
+        self.set_reg8('a', ((self.get_reg8('a') << 1) & 0xff) | last_carry)
+
+    def rra(self):
+        """0x1f"""
+
+        last_carry = self._get_carry_flag()
+
+        regA = self.get_reg8('a')
+        if regA & 0x01 == 0x01:
+            self._set_carry_flag()
+
+        self.set_reg8('a', ((self.get_reg8('a') >> 1) & 0xff) | (last_carry << 7))
+
+    def jr_condtoimm8(self, flags, imm8):
+        """0x18 -- conditionally jump forward by a signed immediate.
+        `flags` may be any of C, Z, NC, or NZ."""
+
+        raise NotImplementedError('conditional jump to 8-bit immediate')
+
+

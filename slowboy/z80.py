@@ -1,5 +1,6 @@
 from functools import partial
 
+from slowboy.utils import uint8toBCD
 
 class Z80(object):
     def __init__(self):
@@ -23,12 +24,13 @@ class Z80(object):
         return self.registers
 
     def set_reg8(self, reg8, value):
-        self.registers[reg8.lower()] = value
+        self.registers[reg8.lower()] = value & 0xff
 
     def get_reg8(self, reg8):
         return self.registers[reg8.lower()]
 
     def set_reg16(self, reg16, value):
+        value = value & 0xffff
         reg16 = reg16.lower()
         if reg16 == 'bc':
             self.registers['b'] = value >> 8
@@ -204,12 +206,65 @@ class Z80(object):
         else:
             self.set_reg8(dest_reg8, self.get_reg8(src_reg8) - self.get_reg8(dest_reg8))
 
+    def and_reg8(self, reg8):
+        """0xa0–a7, except 0xa6"""
+
+        self.set_reg8('a', self.get_reg8('a') & self.get_reg8(reg8))
+
+    def and_addr16(self, addr16):
+        """0xa6"""
+
+        raise NotImplementedError('and (HL)')
+
+    def xor_reg8(self, reg8):
+        """0xa8-af, except 0xae"""
+
+        self.set_reg8('a', self.get_reg8('a') ^ self.get_reg8(reg8))
+
+    def xor_addr16(self, addr16):
+        """0xae"""
+
+        raise NotImplementedError('xor (HL)')
+
+    def or_reg8(self, reg8):
+        """0xb0–b7, except 0xb6"""
+
+        self.set_reg8('a', self.get_reg8('a') | self.get_reg8(reg8))
+
+    def or_addr16(self, addr16):
+        """0xb0–b7, except 0xb6"""
+
+        raise NotImplementedError('or (HL)')
+
+    def cp_reg8toreg8(self, reg8_1, reg8_2):
+        """0xb8–bf, except 0be
+        Compare regA to regB means calculate regA - regB and
+            * set Z if regA == regB
+            * set NZ (reset Z) if regA != regB
+            * set C if regA < regB
+            * set NC (reset C) if regA >= regB
+        """
+
+        result = self.get_reg8(reg8_1) - self.get_reg8(reg8_2)
+
+        if result >= 0: # regA >= regB
+            self._set_zero_flag()
+            self._reset_carry_flag()
+        else: # regA < regB
+            self._reset_zero_flag()
+            self._set_carry_flag()
+
+    def cp_reg8toaddr16(self, reg8, addr16):
+        """0xbe: TODO, similar to `cp_reg8toreg8`"""
+
+        raise NotImplementedError('cp (HL)')
+
     def rlca(self):
         """0x07"""
 
         if self.registers['a'] & 0x80 == 0x80:
             self._set_carry_flag()
-        self.set_reg8('a', (self.get_reg8('a') << 1) & 0xff)
+        self.set_reg8('a', self.get_reg8('a') << 1) 
 
     def rla(self):
         """0x17"""
@@ -225,13 +280,13 @@ class Z80(object):
         if regA & 0x01 == 0x01:
             self._set_carry_flag()
 
-        self.set_reg8('a', (regA >> 1) & 0xff)
+        self.set_reg8('a', regA >> 1)
 
         regA = self.get_reg8('a')
         if regA & 0x80 == 0x80:
             self._set_carry_flag()
 
-        self.set_reg8('a', ((self.get_reg8('a') << 1) & 0xff) | last_carry)
+        self.set_reg8('a', (self.get_reg8('a') << 1) | last_carry)
 
     def rra(self):
         """0x1f"""
@@ -242,7 +297,27 @@ class Z80(object):
         if regA & 0x01 == 0x01:
             self._set_carry_flag()
 
-        self.set_reg8('a', ((self.get_reg8('a') >> 1) & 0xff) | (last_carry << 7))
+        self.set_reg8('a', (self.get_reg8('a') >> 1) | (last_carry << 7))
+
+    def cpl(self):
+        """0x2f: ~A"""
+
+        self.set_reg8('a', ~self.get_reg8('a'))
+
+    def daa(self):
+        """0x27: adjust regA following BCD addition."""
+
+        self.set_reg8('a', uint8toBCD(self.get_reg8('a')))
+
+    def scf(self):
+        """0x37: set carry flag"""
+
+        self._set_carry_flag()
+
+    def ccf(self):
+        """0x3f: clear carry flag"""
+
+        self._reset_carry_flag()
 
     def jr_condtoimm8(self, imm8, zero=False, carry=False):
         """0x18

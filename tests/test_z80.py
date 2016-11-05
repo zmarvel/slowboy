@@ -1,7 +1,7 @@
-
 import unittest
 
 import slowboy.z80
+
 
 class TestZ80(unittest.TestCase):
     def setUp(self):
@@ -10,11 +10,11 @@ class TestZ80(unittest.TestCase):
     def test_set_reg8(self):
         self.cpu.set_reg8('B', 0)
         self.cpu.set_reg8('C', 1)
-        self.cpu.set_reg8('D', 3)
-        self.cpu.set_reg8('E', 4)
-        self.cpu.set_reg8('H', 5)
-        self.cpu.set_reg8('L', 6)
-        self.cpu.set_reg8('A', 7)
+        self.cpu.set_reg8('D', 2)
+        self.cpu.set_reg8('E', 3)
+        self.cpu.set_reg8('H', 4)
+        self.cpu.set_reg8('L', 5)
+        self.cpu.set_reg8('A', 6)
 
         registers = self.cpu.get_registers()
 
@@ -26,7 +26,7 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(registers['l'], 5)
         self.assertEqual(registers['a'], 6)
 
-    def test_set_reg8(self):
+    def test_get_reg8(self):
         self.cpu.set_reg8('B', 0)
         self.cpu.set_reg8('C', 1)
         self.cpu.set_reg8('D', 2)
@@ -142,6 +142,26 @@ class TestZ80(unittest.TestCase):
         self.cpu.ld_reg8toreg8('A', 'C')
         self.assertEqual(self.cpu.get_reg8('C'), 6)
 
+    def test_ld_reg8toaddr16(self):
+        # TODO
+
+        self.cpu.ld_reg8toaddr16('a', 0xc000)
+
+    def test_ld_addr16toreg8(self):
+        # TODO
+
+        self.cpu.ld_addr16toreg8(0xc000, 'a')
+
+    def test_ld_sptoaddr16(self):
+        # TODO
+
+        self.cpu.ld_sptoaddr16(0xc000)
+
+    def test_ld_imm8toaddrHL(self):
+        # TODO
+
+        self.cpu.ld_imm8toaddrHL(5)
+
     def test_ld_imm16toreg16(self):
         self.cpu.ld_imm16toreg16(0x0123, 'BC')
         self.cpu.ld_imm16toreg16(0x4567, 'DE')
@@ -173,4 +193,27 @@ class TestZ80(unittest.TestCase):
         self.cpu.dec_reg16('bc')
         self.assertEqual(self.cpu.get_reg16('bc'), 0xed)
 
+    def test_add_reg16toregHL(self):
+        self.cpu.set_reg16('bc', 0xffff)
+        self.cpu.set_reg16('hl', 0x0001)
+        self.cpu.add_reg16toregHL('bc')
+        self.assertEqual(self.cpu.get_reg16('hl'), 0x0000)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
 
+    def test_add_reg8toreg8(self):
+        self.cpu.set_reg8('b', 0xef)
+        self.cpu.set_reg8('c', 0x01)
+        self.cpu.add_reg8toreg8('c', 'b')
+        self.assertEqual(self.cpu.get_reg8('b'), 0xff)
+        self.assertEqual(self.cpu.get_reg8('c'), 0x01)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_stop(self):
+        # TODO
+
+        self.cpu.stop()
+
+    def test_halt(self):
+        # TODO
+
+        self.cpu.halt()

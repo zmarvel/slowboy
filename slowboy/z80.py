@@ -1,6 +1,6 @@
 from functools import partial
 
-from slowboy.utils import uint8toBCD
+from slowboy.util import uint8toBCD
 
 class Z80(object):
     def __init__(self):
@@ -30,19 +30,18 @@ class Z80(object):
         return self.registers[reg8.lower()]
 
     def set_reg16(self, reg16, value):
-        value = value & 0xffff
         reg16 = reg16.lower()
         if reg16 == 'bc':
-            self.registers['b'] = value >> 8
+            self.registers['b'] = (value >> 8) & 0xff
             self.registers['c'] = value & 0xff
         elif reg16 == 'de':
-            self.registers['d'] = value >> 8
+            self.registers['d'] = (value >> 8) & 0xff
             self.registers['e'] = value & 0xff
         elif reg16 == 'hl':
-            self.registers['h'] = value >> 8
+            self.registers['h'] = (value >> 8) & 0xff
             self.registers['l'] = value & 0xff
         elif reg16 == 'sp':
-            self.registers['sp'] = value
+            self.registers['sp'] = value & 0xffff
         else:
             raise KeyError('unrecognized register {}'.format(reg16))
 
@@ -74,23 +73,14 @@ class Z80(object):
     def get_zero_flag(self):
         return self.get_reg8('f') >> 7
 
-    def _set_carry_flag(self):
-        self.registers['f'] |= 0x10
-
-    def _reset_carry_flag(self):
-        self.registers['f'] &= 0xef
-
-    def get_carry_flag(self):
-        return (self.registers['f'] >> 6) & 0x01
-
-    def _set_addsub_flag(self):
+    def _set_nonzero_flag(self):
         self.registers['f'] |= 0x40
 
-    def _reset_addsub_flag(self):
+    def _reset_nonzero_flag(self):
         self.registers['f'] &= 0xbf
 
-    def get_addsub_flag(self):
-        return (self.registers['f'] >> 5) & 0x01
+    def get_nonzero_flag(self):
+        return self.get_reg8('f') >> 6
 
     def _set_halfcarry_flag(self):
         self.registers['f'] |= 0x20
@@ -99,8 +89,20 @@ class Z80(object):
         self.registers['f'] &= 0xdf
 
     def get_halfcarry_flag(self):
+        # TODO: actually use this
+
+        return (self.registers['f'] >> 5) & 0x01
+
+    def _set_carry_flag(self):
+        self.registers['f'] |= 0x10
+
+    def _reset_carry_flag(self):
+        self.registers['f'] &= 0xef
+
+    def get_carry_flag(self):
         return (self.registers['f'] >> 4) & 0x01
 
+    
     def nop(self):
         """0x00"""
         # TODO
@@ -188,15 +190,28 @@ class Z80(object):
     def add_reg16toregHL(self, reg16):
         """0x09, 0x19, 0x29, 0x39"""
 
-        self.set_reg16('HL', self.get_reg16('HL') + self.get_reg16(reg16))
+        result = self.get_reg16('HL') + self.get_reg16(reg16)
+        self.set_reg16('HL', result)
+
+        if result > 0xffff:
+            self._set_carry_flag()
+        else:
+            self._reset_carry_flag()
 
     def add_reg8toreg8(self, src_reg8, dest_reg8, carry=False):
         """0x80-0x85, 0x87-0x8d, 0x8f"""
 
         if carry:
-            self.set_reg8(dest_reg8, self.get_reg8(src_reg8) + self.get_reg8(dest_reg8) + self.get_carry_flag())
+            result = self.get_reg8(src_reg8) + self.get_reg8(dest_reg8) + self.get_carry_flag()
         else:
-            self.set_reg8(dest_reg8, self.get_reg8(src_reg8) + self.get_reg8(dest_reg8))
+            result = self.get_reg8(src_reg8) + self.get_reg8(dest_reg8)
+
+        self.set_reg8(dest_reg8, result)
+        
+        if result > 0xff:
+            self._set_carry_flag()
+        else:
+            self._reset_carry_flag()
 
     def sub_reg8toreg8(self, src_reg8, dest_reg8, carry=False):
         """0x90-0x95, 0x97-0x9d, 0x9f"""

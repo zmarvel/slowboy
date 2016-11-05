@@ -201,7 +201,7 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
     def test_add_reg8toreg8(self):
-        self.cpu.set_reg8('b', 0xef)
+        self.cpu.set_reg8('b', 0xfe)
         self.cpu.set_reg8('c', 0x01)
         self.cpu.add_reg8toreg8('c', 'b')
         self.assertEqual(self.cpu.get_reg8('b'), 0xff)

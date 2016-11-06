@@ -157,38 +157,38 @@ class Z80(object):
         raise NotImplementedError('ld (HL), imm8')
 
     def inc_reg8(self, reg8):
-        """0x04, 0x14, 0x24, 0x34
+        """0x04, 0x14, 0x24, 0x34 -- inc reg8
         TODO: overflow, carry"""
 
         self.set_reg8(reg8, self.get_reg8(reg8) + 1)
 
     def inc_reg16(self, reg16):
-        """0x03, 0x13, 0x23, 0x33"""
+        """0x03, 0x13, 0x23, 0x33 -- inc reg16"""
 
         self.set_reg16(reg16, self.get_reg16(reg16) + 1)
 
     def dec_reg8(self, reg8):
-        """0x05, 0x15, 0x25, 0x35"""
+        """0x05, 0x15, 0x25, 0x35 -- dec reg8"""
 
         self.set_reg8(reg8, self.get_reg8(reg8) - 1)
 
     def dec_reg16(self, reg16):
-        """0x0b, 0x1b, 0x2b, 0x3b"""
+        """0x0b, 0x1b, 0x2b, 0x3b -- dec reg16"""
 
         self.set_reg16(reg16, self.get_reg16(reg16) - 1)
 
     def inc_addrHL(self):
-        """0x34"""
+        """0x34 -- inc (HL)"""
 
         raise NotImplementedError('inc *(HL)')
 
     def dec_addrHL(self):
-        """0x35"""
+        """0x35 -- dec (HL)"""
 
         raise NotImplementedError('dec *(HL)')
 
     def add_reg16toregHL(self, reg16):
-        """0x09, 0x19, 0x29, 0x39"""
+        """0x09, 0x19, 0x29, 0x39 -- add HL, reg16"""
 
         result = self.get_reg16('HL') + self.get_reg16(reg16)
         self.set_reg16('HL', result)
@@ -199,7 +199,7 @@ class Z80(object):
             self.reset_carry_flag()
 
     def add_reg8toreg8(self, src_reg8, dest_reg8, carry=False):
-        """0x80-0x85, 0x87-0x8d, 0x8f"""
+        """0x80-0x85, 0x87-0x8d, 0x8f -- add src_reg8, dest_reg8"""
 
         src_u8 = self.get_reg8(src_reg8)
         dest_u8 = self.get_reg8(dest_reg8)
@@ -229,7 +229,7 @@ class Z80(object):
             self.reset_carry_flag()
 
     def add_imm8toreg8(self, imm8, reg8, carry=False):
-        """0xc6, 0xce"""
+        """0xc6, 0xce -- add reg8, imm8"""
 
         u8 = self.get_reg8(reg8)
 
@@ -257,7 +257,7 @@ class Z80(object):
             self.reset_carry_flag()
 
     def sub_reg8fromreg8(self, src_reg8, dest_reg8, carry=False):
-        """0x90-0x95, 0x97-0x9d, 0x9f
+        """0x90-0x95, 0x97-0x9d, 0x9f -- sub reg8
         dest_reg8 = dest_reg8 - src_reg8"""
         
         src_u8 = self.get_reg8(src_reg8)
@@ -291,7 +291,7 @@ class Z80(object):
 
 
     def sub_imm8fromreg8(self, imm8, reg8, carry=False):
-        """0xd6, 0xde"""
+        """0xd6, 0xde -- sub imm8"""
 
         u8 = self.get_reg8(reg8)
 
@@ -322,15 +322,13 @@ class Z80(object):
         else:
             self.set_carry_flag()
 
-
-
     def sub_addr16fromreg8(self, addr16, reg8, carry=False):
-        """0x96, 0x9e"""
+        """0x96, 0x9e -- sub/sbc (HL)"""
 
         raise NotImplementedError('sub (HL), sbc (HL)')
 
     def and_reg8(self, reg8):
-        """0xa0–a7, except 0xa6
+        """0xa0–a7, except 0xa6 -- and reg8
         a = a & reg8"""
 
         result = self.get_reg8('a') & self.get_reg8(reg8)
@@ -350,7 +348,7 @@ class Z80(object):
         self.reset_carry_flag()
 
     def and_imm8(self, imm8):
-        """0xe6
+        """0xe6 -- and imm8
         a = a & imm8"""
 
         result = self.get_reg8('a') & imm8
@@ -370,34 +368,76 @@ class Z80(object):
         self.reset_carry_flag()
 
     def and_addr16(self, addr16):
-        """0xa6
+        """0xa6 -- and (HL)
         a = a & (addr16)"""
 
         raise NotImplementedError('and (HL)')
 
+    def or_reg8(self, reg8):
+        """0xb0–b7, except 0xb6 -- or reg8
+        a = a | reg8"""
+
+        result = self.get_reg8('a') | self.get_reg8(reg8)
+        self.set_reg8('a', result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_sub_flag()
+
+    def or_imm8(self, imm8):
+        """0xf6 -- or imm8
+        a = a | imm8"""
+
+        result = self.get_reg8('a') | imm8
+        self.set_reg8('a', result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_sub_flag()
+
+    def or_addr16(self, addr16):
+        """0xb6 -- or (HL)
+        a = a | (addr16)"""
+
+        raise NotImplementedError('or (HL)')
+
     def xor_reg8(self, reg8):
-        """0xa8-af, except 0xae
+        """0xa8-af, except 0xae -- xor reg8
         a = a ^ reg8"""
 
-        self.set_reg8('a', self.get_reg8('a') ^ self.get_reg8(reg8))
+        result = self.get_reg8('a') ^ self.get_reg8(reg8)
+        self.set_reg8('a', result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_sub_flag()
+
+    def xor_imm8(self, imm8):
+        """0xee -- xor imm8
+        a = a ^ imm8"""
+
+        result = self.get_reg8('a') ^ imm8
+        self.set_reg8('a', result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
     def xor_addr16(self, addr16):
         """0xae
         a = a ^ (addr16)"""
 
         raise NotImplementedError('xor (HL)')
-
-    def or_reg8(self, reg8):
-        """0xb0–b7, except 0xb6
-        a = a | reg8"""
-
-        self.set_reg8('a', self.get_reg8('a') | self.get_reg8(reg8))
-
-    def or_addr16(self, addr16):
-        """0xb0–b7, except 0xb6
-        a = a | (addr16)"""
-
-        raise NotImplementedError('or (HL)')
 
     def cp_reg8toreg8(self, reg8_1, reg8_2):
         """0xb8–bf, except 0be
@@ -410,12 +450,22 @@ class Z80(object):
 
         result = self.get_reg8(reg8_1) - self.get_reg8(reg8_2)
 
-        if result >= 0: # regA >= regB
+        if result & 0xff == 0:
             self.set_zero_flag()
-            self.reset_carry_flag()
-        else: # regA < regB
+        else:
             self.reset_zero_flag()
+
+        if result > 0:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.set_sub_flag()
+
+        if result < 0:
             self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
     def cp_reg8toaddr16(self, reg8, addr16):
         """0xbe: TODO, similar to `cp_reg8toreg8`"""

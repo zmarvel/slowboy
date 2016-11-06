@@ -208,12 +208,27 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('c'), 0x01)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
+    def test_sub_reg8fromreg8(self):
+        self.cpu.set_reg8('b', 0xff)
+        self.cpu.set_reg8('c', 0x11)
+        self.cpu.sub_reg8fromreg8('c', 'b')
+        self.assertEqual(self.cpu.get_reg8('c'), 0x11)
+        self.assertEqual(self.cpu.get_reg8('b'), 0xee)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+        self.cpu.set_reg8('b', 0x00)
+        self.cpu.set_reg8('c', 0x01)
+        self.cpu.sub_reg8fromreg8('c', 'b')
+        self.assertEqual(self.cpu.get_reg8('c'), 0x01)
+        self.assertEqual(self.cpu.get_reg8('b'), 0x00)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
     def test_stop(self):
         # TODO
-
         self.cpu.stop()
 
     def test_halt(self):
         # TODO
-
         self.cpu.halt()
+
+

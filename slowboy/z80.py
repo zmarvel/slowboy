@@ -214,16 +214,14 @@ class Z80(object):
             self._reset_carry_flag()
 
     def sub_reg8fromreg8(self, src_reg8, dest_reg8, carry=False):
-        """0x90-0x95, 0x97-0x9d, 0x9f
-        dest_reg8 = dest_reg8 - src_reg8"""
+        """0x90-0x95, 0x97-0x9d, 0x9f"""
         
         # TODO: just implement two's complement subtraction.
 
         if carry:
             result = self.get_reg8(dest_reg8) - self.get_reg8(src_reg8) - self.get_carry_flag()
         else:
-            #result = self.get_reg8(dest_reg8) - self.get_reg8(src_reg8)
-            result = self.get_reg8(dest_reg8) + (self.get_reg8(src_reg8) ^ 0xff) + 1
+            result = self.get_reg8(dest_reg8) - self.get_reg8(src_reg8)
 
         self.set_reg8(dest_reg8, result)
 

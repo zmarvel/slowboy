@@ -64,43 +64,43 @@ class Z80(object):
         # op = self.rom[self.registers['pc']]
         self.registers['pc'] += 1
 
-    def _set_zero_flag(self):
+    def set_zero_flag(self):
         self.registers['f'] |= 0x80
 
-    def _reset_zero_flag(self):
+    def reset_zero_flag(self):
         self.registers['f'] &= 0x7f
 
     def get_zero_flag(self):
-        return self.get_reg8('f') >> 7
+        return (self.get_reg8('f') >> 7) & 1
 
-    def _set_nonzero_flag(self):
+    def set_sub_flag(self):
         self.registers['f'] |= 0x40
 
-    def _reset_nonzero_flag(self):
+    def reset_sub_flag(self):
         self.registers['f'] &= 0xbf
 
-    def get_nonzero_flag(self):
-        return self.get_reg8('f') >> 6
+    def get_sub_flag(self):
+        return (self.get_reg8('f') >> 6) & 1
 
-    def _set_halfcarry_flag(self):
+    def set_halfcarry_flag(self):
         self.registers['f'] |= 0x20
 
-    def _reset_halfcarry_flag(self):
+    def reset_halfcarry_flag(self):
         self.registers['f'] &= 0xdf
 
     def get_halfcarry_flag(self):
         # TODO: actually use this
 
-        return (self.registers['f'] >> 5) & 0x01
+        return (self.registers['f'] >> 5) & 1
 
-    def _set_carry_flag(self):
+    def set_carry_flag(self):
         self.registers['f'] |= 0x10
 
-    def _reset_carry_flag(self):
+    def reset_carry_flag(self):
         self.registers['f'] &= 0xef
 
     def get_carry_flag(self):
-        return (self.registers['f'] >> 4) & 0x01
+        return (self.registers['f'] >> 4) & 1
 
     
     def nop(self):
@@ -194,64 +194,208 @@ class Z80(object):
         self.set_reg16('HL', result)
 
         if result > 0xffff:
-            self._set_carry_flag()
+            self.set_carry_flag()
         else:
-            self._reset_carry_flag()
+            self.reset_carry_flag()
 
     def add_reg8toreg8(self, src_reg8, dest_reg8, carry=False):
         """0x80-0x85, 0x87-0x8d, 0x8f"""
 
+        src_u8 = self.get_reg8(src_reg8)
+        dest_u8 = self.get_reg8(dest_reg8)
+
         if carry:
-            result = self.get_reg8(src_reg8) + self.get_reg8(dest_reg8) + self.get_carry_flag()
+            result = src_u8 + dest_u8 + self.get_carry_flag()
         else:
-            result = self.get_reg8(src_reg8) + self.get_reg8(dest_reg8)
+            result = src_u8 + dest_u8
 
         self.set_reg8(dest_reg8, result)
-        
-        if result > 0xff:
-            self._set_carry_flag()
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
         else:
-            self._reset_carry_flag()
+            self.reset_zero_flag()
+
+        if (dest_u8 & 0x0f) + (src_u8 & 0x0f) > 0x0f:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.reset_sub_flag()
+
+        if result > 0xff:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
+
+    def add_imm8toreg8(self, imm8, reg8, carry=False):
+        """0xc6, 0xce"""
+
+        u8 = self.get_reg8(reg8)
+
+        if carry:
+            result = u8 + imm8 + self.get_carry_flag()
+        else:
+            result = u8 + imm8
+        self.set_reg8(reg8, result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if (u8 & 0x0f) + (imm8 & 0x0f) > 0x0f:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.reset_sub_flag()
+
+        if result > 0xff:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
     def sub_reg8fromreg8(self, src_reg8, dest_reg8, carry=False):
-        """0x90-0x95, 0x97-0x9d, 0x9f"""
+        """0x90-0x95, 0x97-0x9d, 0x9f
+        dest_reg8 = dest_reg8 - src_reg8"""
         
-        # TODO: just implement two's complement subtraction.
+        src_u8 = self.get_reg8(src_reg8)
+        dest_u8 = self.get_reg8(dest_reg8)
 
         if carry:
-            result = self.get_reg8(dest_reg8) - self.get_reg8(src_reg8) - self.get_carry_flag()
+            # TODO
+            raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
         else:
-            result = self.get_reg8(dest_reg8) - self.get_reg8(src_reg8)
+            result = dest_u8  + (((src_u8  ^ 0xff) + 1) & 0xff)
 
         self.set_reg8(dest_reg8, result)
 
-    def and_reg8(self, reg8):
-        """0xa0–a7, except 0xa6"""
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
-        self.set_reg8('a', self.get_reg8('a') & self.get_reg8(reg8))
+        # TODO: set halfcarry flag if a borrow from bit 4 occured
+        if (dest_u8 & 0x0f) + (src_u8 & 0x0f) > 0x0f:
+            self.reset_halfcarry_flag()
+        else:
+            self.set_halfcarry_flag()
+
+        self.set_sub_flag()
+
+        if result > 0xff:
+            self.reset_carry_flag()
+        else:
+            self.set_carry_flag()
+
+
+    def sub_imm8fromreg8(self, imm8, reg8, carry=False):
+        """0xd6, 0xde"""
+
+        u8 = self.get_reg8(reg8)
+
+        if carry:
+            # TODO
+            raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
+        else:
+            result = u8  + (((imm8  ^ 0xff) + 1) & 0xff)
+        
+        self.set_reg8(reg8, result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        # TODO: set halfcarry flag if a borrow from bit 4 occured
+        # this will need updated when carry is completed too
+        if ((u8 & 0x0f) + ((imm8 ^ 0xff) & 0x0f) + 1) > 0x0f:
+            self.reset_halfcarry_flag()
+        else:
+            self.set_halfcarry_flag()
+
+        self.set_sub_flag()
+
+        if result > 0xff:
+            self.reset_carry_flag()
+        else:
+            self.set_carry_flag()
+
+
+
+    def sub_addr16fromreg8(self, addr16, reg8, carry=False):
+        """0x96, 0x9e"""
+
+        raise NotImplementedError('sub (HL), sbc (HL)')
+
+    def and_reg8(self, reg8):
+        """0xa0–a7, except 0xa6
+        a = a & reg8"""
+
+        result = self.get_reg8('a') & self.get_reg8(reg8)
+        self.set_reg8('a', result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if (result >> 4) & 1 == 1:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.reset_sub_flag()
+        self.reset_carry_flag()
+
+    def and_imm8(self, imm8):
+        """0xe6
+        a = a & imm8"""
+
+        result = self.get_reg8('a') & imm8
+        self.set_reg8('a', result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if (result >> 4) & 1 == 1:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.reset_sub_flag()
+        self.reset_carry_flag()
 
     def and_addr16(self, addr16):
-        """0xa6"""
+        """0xa6
+        a = a & (addr16)"""
 
         raise NotImplementedError('and (HL)')
 
     def xor_reg8(self, reg8):
-        """0xa8-af, except 0xae"""
+        """0xa8-af, except 0xae
+        a = a ^ reg8"""
 
         self.set_reg8('a', self.get_reg8('a') ^ self.get_reg8(reg8))
 
     def xor_addr16(self, addr16):
-        """0xae"""
+        """0xae
+        a = a ^ (addr16)"""
 
         raise NotImplementedError('xor (HL)')
 
     def or_reg8(self, reg8):
-        """0xb0–b7, except 0xb6"""
+        """0xb0–b7, except 0xb6
+        a = a | reg8"""
 
         self.set_reg8('a', self.get_reg8('a') | self.get_reg8(reg8))
 
     def or_addr16(self, addr16):
-        """0xb0–b7, except 0xb6"""
+        """0xb0–b7, except 0xb6
+        a = a | (addr16)"""
 
         raise NotImplementedError('or (HL)')
 
@@ -267,11 +411,11 @@ class Z80(object):
         result = self.get_reg8(reg8_1) - self.get_reg8(reg8_2)
 
         if result >= 0: # regA >= regB
-            self._set_zero_flag()
-            self._reset_carry_flag()
+            self.set_zero_flag()
+            self.reset_carry_flag()
         else: # regA < regB
-            self._reset_zero_flag()
-            self._set_carry_flag()
+            self.reset_zero_flag()
+            self.set_carry_flag()
 
     def cp_reg8toaddr16(self, reg8, addr16):
         """0xbe: TODO, similar to `cp_reg8toreg8`"""
@@ -282,7 +426,7 @@ class Z80(object):
         """0x07"""
 
         if self.registers['a'] & 0x80 == 0x80:
-            self._set_carry_flag()
+            self.set_carry_flag()
         self.set_reg8('a', self.get_reg8('a') << 1) 
 
     def rla(self):
@@ -297,13 +441,13 @@ class Z80(object):
 
         regA = self.get_reg8('a')
         if regA & 0x01 == 0x01:
-            self._set_carry_flag()
+            self.set_carry_flag()
 
         self.set_reg8('a', regA >> 1)
 
         regA = self.get_reg8('a')
         if regA & 0x80 == 0x80:
-            self._set_carry_flag()
+            self.set_carry_flag()
 
         self.set_reg8('a', (self.get_reg8('a') << 1) | last_carry)
 
@@ -314,7 +458,7 @@ class Z80(object):
 
         regA = self.get_reg8('a')
         if regA & 0x01 == 0x01:
-            self._set_carry_flag()
+            self.set_carry_flag()
 
         self.set_reg8('a', (self.get_reg8('a') >> 1) | (last_carry << 7))
 
@@ -331,12 +475,12 @@ class Z80(object):
     def scf(self):
         """0x37: set carry flag"""
 
-        self._set_carry_flag()
+        self.set_carry_flag()
 
     def ccf(self):
         """0x3f: clear carry flag"""
 
-        self._reset_carry_flag()
+        self.reset_carry_flag()
 
     def jr_condtoimm8(self, imm8, zero=False, carry=False):
         """0x18

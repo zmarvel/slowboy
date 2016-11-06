@@ -219,7 +219,7 @@ class Z80(object):
         # TODO: just implement two's complement subtraction.
 
         if carry:
-            result = dest_reg8, self.get_reg8(dest_reg8) - self.get_reg8(src_reg8) - self.get_carry_flag()
+            result = self.get_reg8(dest_reg8) - self.get_reg8(src_reg8) - self.get_carry_flag()
         else:
             result = self.get_reg8(dest_reg8) - self.get_reg8(src_reg8)
 

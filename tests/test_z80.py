@@ -208,6 +208,35 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('c'), 0x01)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
+    def test_add_reg8toreg8_2(self):
+        """Example from the Gameboy Programming Manual"""
+
+        self.cpu.set_reg8('a', 0x3a)
+        self.cpu.set_reg8('b', 0xc6)
+        self.cpu.add_reg8toreg8('b', 'a')
+        
+        self.assertEqual(self.cpu.get_reg8('a'), 0)
+        self.assertEqual(self.cpu.get_zero_flag(), 1)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_add_reg8toreg8_withcarry(self):
+        """Example from the Gameboy Programming Manual"""
+
+        # TODO: add a test using (HL)
+
+        self.cpu.set_reg8('a', 0xe1)
+        self.cpu.set_reg8('e', 0x0f)
+        self.cpu.set_carry_flag()
+        self.cpu.add_reg8toreg8('e', 'a', carry=True)
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0xf1)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
     def test_sub_reg8fromreg8(self):
         self.cpu.set_reg8('b', 0xff)
         self.cpu.set_reg8('c', 0x11)
@@ -220,15 +249,104 @@ class TestZ80(unittest.TestCase):
         self.cpu.set_reg8('c', 0x01)
         self.cpu.sub_reg8fromreg8('c', 'b')
         self.assertEqual(self.cpu.get_reg8('c'), 0x01)
-        self.assertEqual(self.cpu.get_reg8('b'), 0x00)
+        self.assertEqual(self.cpu.get_reg8('b'), 0xff)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_sub_reg8fromreg8_2(self):
+        """Example from the Gameboy Programming Manual"""
+
+        self.cpu.set_reg8('a', 0x3e)
+        self.cpu.set_reg8('e', 0x3e)
+        self.cpu.sub_reg8fromreg8('e', 'a')
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x00)
+        self.assertEqual(self.cpu.get_zero_flag(), 1)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 1)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_sub_imm8fromreg8(self):
+        """Example from the Gameboy Programming Manual"""
+
+        self.cpu.set_reg8('a', 0x3e)
+        self.cpu.sub_imm8fromreg8(0x0f, 'a')
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x2f)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
+        self.assertEqual(self.cpu.get_sub_flag(), 1)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_sub_addr16fromreg8(self):
+        """Example from the Gameboy Programming Manual"""
+
+        u8 = self.cpu.get_reg8('a')
+        addr16 = 0xc000
+        
+        self.cpu.set_reg8('a', 0x3e)
+        self.cpu.set_addr16(addr16, 0x40)
+        self.cpu.sub_addr16fromreg8(addr16, 'a')
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0xfe)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 1)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_and_reg8(self):
+        self.cpu.set_reg8('a', 0xaa)
+        self.cpu.set_reg8('b', 0x55)
+        self.cpu.and_reg8('b')
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x00)
+        self.assertEqual(self.cpu.get_zero_flag(), 1)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_and_reg8_2(self):
+        self.cpu.set_reg8('a', 0xff)
+        self.cpu.set_reg8('l', 0x55)
+        self.cpu.and_reg8('l')
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x55)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_and_imm8(self):
+        self.cpu.set_reg8('a', 0xaa)
+        self.cpu.and_imm8(0x55)
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x00)
+        self.assertEqual(self.cpu.get_zero_flag(), 1)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_and_imm8_2(self):
+        self.cpu.set_reg8('a', 0xff)
+        self.cpu.and_imm8(0x55)
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x55)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
 
     def test_stop(self):
         # TODO
+        # for now, just make sure no exceptions are raised. later, we want to
+        # check that the CPU waited the appropriate number of cycles.
+
         self.cpu.stop()
 
     def test_halt(self):
         # TODO
+        # for now, just make sure no exceptions are raised. later, we want to
+        # check that the CPU waited the appropriate number of cycles.
+
         self.cpu.halt()
 
 

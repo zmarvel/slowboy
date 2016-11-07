@@ -160,22 +160,73 @@ class Z80(object):
         """0x04, 0x14, 0x24, 0x34 -- inc reg8
         TODO: overflow, carry"""
 
-        self.set_reg8(reg8, self.get_reg8(reg8) + 1)
+        u8 = self.get_reg8(reg8)
+        
+        result = u8 + 1
+        self.set_reg8(reg8, result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if u8 & 0x0f == 0xf:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.reset_sub_flag()
 
     def inc_reg16(self, reg16):
         """0x03, 0x13, 0x23, 0x33 -- inc reg16"""
 
-        self.set_reg16(reg16, self.get_reg16(reg16) + 1)
+        u16 = self.get_reg16(reg16)
+        
+        result = u16 + 1
+        self.set_reg16(reg16, result)
+
+        if result & 0xffff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if u16 & 0x00ff == 0xff:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.reset_sub_flag()
 
     def dec_reg8(self, reg8):
         """0x05, 0x15, 0x25, 0x35 -- dec reg8"""
 
-        self.set_reg8(reg8, self.get_reg8(reg8) - 1)
+        # TODO: according to the Z80 manual, dec does not affect the carry flag,
+        # but it does affect the half-carry flag when a borrow from bit 4 occurs.
+
+        u8 = self.get_reg8(reg8)
+
+        self.set_reg8(reg8, u8 + 0xff)
+
+        if u8 & 0x0f == 0:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.set_sub_flag()
 
     def dec_reg16(self, reg16):
         """0x0b, 0x1b, 0x2b, 0x3b -- dec reg16"""
 
-        self.set_reg16(reg16, self.get_reg16(reg16) - 1)
+        u16 = self.get_reg16(reg16)
+
+        self.set_reg16(reg16, u16 + 0xffff)
+
+        if u16 & 0x00ff == 0:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.set_sub_flag()
 
     def inc_addrHL(self):
         """0x34 -- inc (HL)"""
@@ -277,7 +328,7 @@ class Z80(object):
             self.reset_zero_flag()
 
         # TODO: set halfcarry flag if a borrow from bit 4 occured
-        if (dest_u8 & 0x0f) + (src_u8 & 0x0f) > 0x0f:
+        if (dest_u8 & 0x0f) + (((src_u8  ^ 0xff) + 1) & 0x0f) > 0x0f:
             self.reset_halfcarry_flag()
         else:
             self.set_halfcarry_flag()
@@ -482,6 +533,7 @@ class Z80(object):
     def rla(self):
         """0x17"""
 
+        # TODO
         last_carry = self.get_carry_flag()
 
     def rrca(self):

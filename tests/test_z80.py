@@ -181,7 +181,6 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_zero_flag(), 0)
         self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
-        self.assertEqual(self.cpu.get_carry_flag(), 0)
 
     def test_inc_reg8_2(self):
         self.cpu.set_reg8('b', 0x0f)
@@ -191,7 +190,6 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_zero_flag(), 0)
         self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
-        self.assertEqual(self.cpu.get_carry_flag(), 0)
 
     def test_inc_reg8_3(self):
         self.cpu.set_reg8('b', 0xff)
@@ -199,9 +197,8 @@ class TestZ80(unittest.TestCase):
 
         self.assertEqual(self.cpu.get_reg8('b'), 0x00)
         self.assertEqual(self.cpu.get_zero_flag(), 1)
-        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
-        self.assertEqual(self.cpu.get_carry_flag(), 1)
 
     def test_inc_reg16(self):
         self.cpu.set_reg16('bc', 0xeeff)
@@ -211,7 +208,6 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_zero_flag(), 0)
         self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
-        self.assertEqual(self.cpu.get_carry_flag(), 0)
 
     def test_dec_reg8(self):
         self.cpu.set_reg8('b', 0x04)
@@ -237,7 +233,7 @@ class TestZ80(unittest.TestCase):
 
         self.assertEqual(self.cpu.get_reg8('b'), 0xff)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
-        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
         self.assertEqual(self.cpu.get_sub_flag(), 1)
 
     def test_dec_reg16(self):

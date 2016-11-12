@@ -606,7 +606,6 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
     def test_cpl(self):
-
         self.cpu.set_reg8('a', 0x55)
 
         self.cpu.cpl()
@@ -614,7 +613,6 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('a'), 0xaa)
 
     def test_daa(self):
-
         # 28 = 0x1c
         self.cpu.set_reg8('a', 28)
         self.cpu.daa()
@@ -622,7 +620,6 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('a'), 0x28)
 
     def test_scf(self):
-
         self.cpu.reset_carry_flag()
         self.cpu.scf()
 
@@ -633,11 +630,97 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
     def test_ccf(self):
-
         self.cpu.set_carry_flag()
         self.cpu.ccf()
 
         self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_jr_imm8(self):
+        self.cpu.set_pc(0x1000)
+        self.cpu.jr_imm8(0x20)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1020)
+
+    def test_jr_imm8_2(self):
+        self.cpu.set_pc(0x1000)
+        self.cpu.jr_imm8(0xe0)
+
+        self.assertEqual(self.cpu.get_pc(), 0x0fe0)
+
+    def test_jr_condtoimm8(self):
+        self.cpu.set_pc(0x1000)
+        self.cpu.reset_zero_flag()
+        self.cpu.jr_condtoimm8('NZ', 0x20)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1020)
+
+        self.cpu.set_zero_flag()
+        self.cpu.jr_condtoimm8('Z', 0x20)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1040)
+
+        self.cpu.reset_carry_flag()
+        self.cpu.jr_condtoimm8('NC', 0x20)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1060)
+
+        self.cpu.set_carry_flag()
+        self.cpu.jr_condtoimm8('C', 0x20)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1080)
+
+    def test_jp_addr16(self):
+        self.cpu.set_pc(0xc000)
+        self.cpu.jp_addr16(0xd000)
+
+        self.assertEqual(self.cpu.get_pc(), 0xd000)
+
+    def test_jp_condtoaddr16(self):
+        self.cpu.set_pc(0xc000)
+        self.cpu.reset_zero_flag()
+        self.cpu.jp_condtoaddr16('NZ', 0xd000)
+
+        self.assertEqual(self.cpu.get_pc(), 0xd000)
+
+        self.cpu.set_zero_flag()
+        self.cpu.jp_condtoaddr16('Z', 0xe000)
+
+        self.assertEqual(self.cpu.get_pc(), 0xe000)
+
+        self.cpu.reset_carry_flag()
+        self.cpu.jp_condtoaddr16('NC', 0xf000)
+
+        self.assertEqual(self.cpu.get_pc(), 0xf000)
+
+        self.cpu.set_carry_flag()
+        self.cpu.jp_condtoaddr16('C', 0xd000)
+        self.assertEqual(self.cpu.get_pc(), 0xd000)
+
+    def test_ret_cond(self):
+        # TODO
+
+        self.cpu.ret_cond('')
+
+    def test_ret(self):
+        # TODO
+
+        self.cpu.ret()
+
+    def test_reti(self):
+        # TODO
+
+        self.cpu.reti()
+
+    def test_call_addr16(self):
+        # TODO
+
+        self.cpu.call_addr16(0xc000)
+
+    def test_call_condtoaddr16(self):
+        # TODO
+
+        self.cpu.reset_zero_flag()
+        self.cpu.call_condtoaddr16('NZ', 0xc000)
 
     def test_stop(self):
         # TODO

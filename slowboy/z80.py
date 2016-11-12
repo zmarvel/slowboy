@@ -660,6 +660,8 @@ class Z80(object):
         """0x18 --- jr imm8
         Relative jump by a signed immediate."""
 
+        # TODO: this should be two's complement addition
+
         self.set_pc(self.get_pc() + imm8)
 
     def jp_condtoaddr16(self, cond, addr16):

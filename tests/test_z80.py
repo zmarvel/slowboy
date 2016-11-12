@@ -613,6 +613,32 @@ class TestZ80(unittest.TestCase):
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xaa)
 
+    def test_daa(self):
+
+        # 28 = 0x1c
+        self.cpu.set_reg8('a', 28)
+        self.cpu.daa()
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x28)
+
+    def test_scf(self):
+
+        self.cpu.reset_carry_flag()
+        self.cpu.scf()
+
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+        self.cpu.scf()
+
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_ccf(self):
+
+        self.cpu.set_carry_flag()
+        self.cpu.ccf()
+
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
     def test_stop(self):
         # TODO
         # for now, just make sure no exceptions are raised. later, we want to

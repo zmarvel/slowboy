@@ -1,6 +1,6 @@
-from functools import partial
 
 from slowboy.util import uint8toBCD
+
 
 class Z80(object):
     def __init__(self):
@@ -14,10 +14,10 @@ class Z80(object):
             'd': 0,
             'e': 0,
             'h': 0,
-            'l': 0,
-            'sp': 0,
-            'pc': 0
+            'l': 0
         }
+        self.sp = 0
+        self.pc = 0
         return
 
     def get_registers(self):
@@ -40,8 +40,6 @@ class Z80(object):
         elif reg16 == 'hl':
             self.registers['h'] = (value >> 8) & 0xff
             self.registers['l'] = value & 0xff
-        elif reg16 == 'sp':
-            self.registers['sp'] = value & 0xffff
         else:
             raise KeyError('unrecognized register {}'.format(reg16))
 
@@ -53,16 +51,26 @@ class Z80(object):
             return (self.registers['d'] << 8) | self.registers['e']
         elif reg16 == 'hl':
             return (self.registers['h'] << 8) | self.registers['l']
-        elif reg16 == 'sp':
-            return self.registers['sp']
         else:
             raise KeyError('unrecognized register {}'.format(reg16))
 
-    def _advance(self):
-        """Advance the program counter."""
+    def set_sp(self, u16):
+        self.sp = u16 & 0xffff
 
-        # op = self.rom[self.registers['pc']]
-        self.registers['pc'] += 1
+    def inc_sp(self):
+        self.sp = (self.sp + 1) & 0xffff
+
+    def get_sp(self):
+        return self.sp
+
+    def set_pc(self, addr16):
+        self.pc = addr16 & 0xffff
+
+    def inc_pc(self):
+        self.pc = (self.pc + 1) & 0xffff
+
+    def get_pc(self):
+        return self.pc
 
     def set_zero_flag(self):
         self.registers['f'] |= 0x80
@@ -102,7 +110,6 @@ class Z80(object):
     def get_carry_flag(self):
         return (self.registers['f'] >> 4) & 1
 
-    
     def nop(self):
         """0x00"""
         # TODO
@@ -318,7 +325,7 @@ class Z80(object):
             # TODO
             raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
         else:
-            result = dest_u8  + (((src_u8  ^ 0xff) + 1) & 0xff)
+            result = dest_u8 + (((src_u8 ^ 0xff) + 1) & 0xff)
 
         self.set_reg8(dest_reg8, result)
 
@@ -327,8 +334,7 @@ class Z80(object):
         else:
             self.reset_zero_flag()
 
-        # TODO: set halfcarry flag if a borrow from bit 4 occured
-        if (dest_u8 & 0x0f) + (((src_u8  ^ 0xff) + 1) & 0x0f) > 0x0f:
+        if (dest_u8 & 0x0f) + (((src_u8 ^ 0xff) + 1) & 0x0f) > 0x0f:
             self.reset_halfcarry_flag()
         else:
             self.set_halfcarry_flag()
@@ -340,7 +346,6 @@ class Z80(object):
         else:
             self.set_carry_flag()
 
-
     def sub_imm8fromreg8(self, imm8, reg8, carry=False):
         """0xd6, 0xde -- sub imm8"""
 
@@ -350,7 +355,7 @@ class Z80(object):
             # TODO
             raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
         else:
-            result = u8  + (((imm8  ^ 0xff) + 1) & 0xff)
+            result = u8 + (((imm8 ^ 0xff) + 1) & 0xff)
         
         self.set_reg8(reg8, result)
 
@@ -523,46 +528,95 @@ class Z80(object):
 
         raise NotImplementedError('cp (HL)')
 
-    def rlca(self):
-        """0x07"""
-
-        if self.registers['a'] & 0x80 == 0x80:
-            self.set_carry_flag()
-        self.set_reg8('a', self.get_reg8('a') << 1) 
-
-    def rla(self):
-        """0x17"""
-
-        # TODO
-        last_carry = self.get_carry_flag()
-
-    def rrca(self):
-        """0x0f"""
+    def rla_reg8(self, reg8):
+        """0x17
+        shift reg8 left 1, place old bit 7 in CF, place old CF in bit 0."""
 
         last_carry = self.get_carry_flag()
+        reg = self.get_reg8(reg8)
+        result = (reg << 1) | last_carry
 
-        regA = self.get_reg8('a')
-        if regA & 0x01 == 0x01:
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if reg & 0x80 == 0x80:
             self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
-        self.set_reg8('a', regA >> 1)
+        self.set_reg8(reg8, result)
 
-        regA = self.get_reg8('a')
-        if regA & 0x80 == 0x80:
+    def rlca_reg8(self, reg8):
+        """0x07
+        shift reg8 left 1, place old bit 7 in CF and bit 0."""
+
+        reg = self.get_reg8(reg8)
+        result = (reg << 1) | (reg >> 7)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if reg & 0x80 == 0x80:
             self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
-        self.set_reg8('a', (self.get_reg8('a') << 1) | last_carry)
+        self.set_reg8(reg8, result)
 
-    def rra(self):
-        """0x1f"""
+    def rra_reg8(self, reg8):
+        """0x1f
+        shift reg8 right 1, place old bit 0 in CF, place old CF in bit 7."""
 
         last_carry = self.get_carry_flag()
+        reg = self.get_reg8(reg8)
+        result = (reg >> 1) | (last_carry << 7)
 
-        regA = self.get_reg8('a')
-        if regA & 0x01 == 0x01:
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if reg & 0x01 == 0x01:
             self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
-        self.set_reg8('a', (self.get_reg8('a') >> 1) | (last_carry << 7))
+        self.set_reg8(reg8, result)
+
+    def rrca_reg8(self, reg8):
+        """0x0f
+        logical shift reg8 right 1, place old bit 0 in CF and bit 7."""
+
+        reg = self.get_reg8(reg8)
+        result = (reg >> 1) | ((reg << 7) & 0x80)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if reg & 0x01 == 0x01:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
+
+        self.set_reg8(reg8, result)
 
     def cpl(self):
         """0x2f: ~A"""
@@ -584,14 +638,81 @@ class Z80(object):
 
         self.reset_carry_flag()
 
-    def jr_condtoimm8(self, imm8, zero=False, carry=False):
-        """0x18
-        Conditionally jump forward by a signed immediate offset."""
+    def jr_condtoimm8(self, cond, imm8):
+        """0x28, 0x38
+        Conditional relative jump by a signed immediate."""
 
-        raise NotImplementedError('conditional jump to 8-bit immediate')
+        cond = cond.lower()
+        if cond == 'z':
+            if self.get_zero_flag() == 1:
+                self.set_pc(self.get_pc() + imm8)
+        elif cond == 'nz':
+            if self.get_zero_flag() == 0:
+                self.set_pc(self.get_pc() + imm8)
+        elif cond == 'c':
+            if self.get_carry_flag() == 1:
+                self.set_pc(self.get_pc() + imm8)
+        elif cond == 'nc':
+            if self.get_carry_flag() == 0:
+                self.set_pc(self.get_pc() + imm8)
 
-    def jp_condtoimm8(self, addr16, zero=False, carry=False):
-        """0xc2, 0xd2, 0xc3, 0xca, 0xda
+    def jr_imm8(self, imm8):
+        """0x18 --- jr imm8
+        Relative jump by a signed immediate."""
+
+        self.set_pc(self.get_pc() + imm8)
+
+    def jp_condtoaddr16(self, cond, addr16):
+        """0xc2, 0xd2, 0xca, 0xda
         Conditional absolute jump to 16-bit address."""
 
-        raise NotImplementedError('jp f, addr16')
+        cond = cond.lower()
+        if cond == 'z':
+            if self.get_zero_flag() == 1:
+                self.set_pc(addr16)
+        elif cond == 'nz':
+            if self.get_zero_flag() == 0:
+                self.set_pc(addr16)
+        elif cond == 'c':
+            if self.get_carry_flag() == 1:
+                self.set_pc(addr16)
+        elif cond == 'nc':
+            if self.get_carry_flag() == 0:
+                self.set_pc(addr16)
+
+    def jp_addr16(self, addr16):
+        """0xc3, 0xe9 -- jp addr16"""
+
+        self.set_pc(addr16)
+
+    def ret_cond(self, cond):
+        """0xc0, 0xc8, 0xc9, 0xd0, 0xd8, 0xd9 -- ret / reti / ret cond
+        cond may be one of Z, C, NZ, NC."""
+
+        raise NotImplementedError('ret / reti')
+
+    def call_condtoaddr16(self, cond, addr16):
+        """0xc4, 0xd4, 0xcc, 0xdc -- call cond, addr16
+        cond may be one of Z, C, NZ, NC."""
+
+        raise NotImplementedError('call cond, addr16')
+
+    def call_addr16(self, addr16):
+        """0xcd -- call addr16"""
+
+        raise NotImplementedError('call addr16')
+
+    def rst(self):
+        """0xc7, 0xd7, 0xe7, 0xf7, 0xcf, 0xdf, 0xef, 0xff -- rst xxH"""
+
+        raise NotImplementedError('rst')
+
+    def di(self):
+        """0xf3"""
+
+        raise NotImplementedError('di')
+
+    def ei(self):
+        """0xfb"""
+
+        raise NotImplementedError('ei')

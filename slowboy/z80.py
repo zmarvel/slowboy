@@ -528,8 +528,8 @@ class Z80(object):
 
         raise NotImplementedError('cp (HL)')
 
-    def rla_reg8(self, reg8):
-        """0x17
+    def rl_reg8(self, reg8):
+        """0x17, CB 0x10-0x17
         shift reg8 left 1, place old bit 7 in CF, place old CF in bit 0."""
 
         last_carry = self.get_carry_flag()
@@ -551,8 +551,8 @@ class Z80(object):
 
         self.set_reg8(reg8, result)
 
-    def rlca_reg8(self, reg8):
-        """0x07
+    def rlc_reg8(self, reg8):
+        """0x07, CB 0x00-0x07
         shift reg8 left 1, place old bit 7 in CF and bit 0."""
 
         reg = self.get_reg8(reg8)
@@ -573,8 +573,8 @@ class Z80(object):
 
         self.set_reg8(reg8, result)
 
-    def rra_reg8(self, reg8):
-        """0x1f
+    def rr_reg8(self, reg8):
+        """0x1f, CB 0x18-0x1f
         shift reg8 right 1, place old bit 0 in CF, place old CF in bit 7."""
 
         last_carry = self.get_carry_flag()
@@ -596,8 +596,8 @@ class Z80(object):
 
         self.set_reg8(reg8, result)
 
-    def rrca_reg8(self, reg8):
-        """0x0f
+    def rrc_reg8(self, reg8):
+        """0x0f, CB 0x08-0x0f
         logical shift reg8 right 1, place old bit 0 in CF and bit 7."""
 
         reg = self.get_reg8(reg8)
@@ -617,6 +617,102 @@ class Z80(object):
             self.reset_carry_flag()
 
         self.set_reg8(reg8, result)
+
+    def sla_reg8(self, reg8):
+        """0x20-0x25, 0x27
+        Logical shift reg8 left 1 and place old bit 0 in CF."""
+
+        reg = self.get_reg8(reg8)
+        result = reg << 1
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if (reg >> 7) & 0x01 == 1:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
+
+        self.set_reg8(result)
+
+        raise NotImplementedError('sla reg8')
+
+    def sla_addr16(self, addr16):
+        """0x20-0x25, 0x27
+        Logical shift (addr16) left 1 and place old bit 0 in CF."""
+
+        reg = self.get_addr16(addr16)
+        result = reg << 1
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if (reg >> 7) & 0x01 == 1:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
+
+        self.set_addr16(result)
+
+        raise NotImplementedError('sla (HL)')
+
+    def sra_reg8(self, reg8):
+        """0x28-0x2d, 0x2f
+        Logical shift reg8 right 1 and place old bit 7 in CF."""
+        
+        reg = self.get_reg8(reg8)
+        result = reg >> 1
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if reg & 0x01 == 1:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
+
+        self.set_reg8(result)
+
+        raise NotImplementedError('sra reg8')
+
+    def sra_addr16(self, addr16):
+        """0x20-0x25, 0x27
+        Logical shift (addr16) right 1 and place old bit 7 in CF."""
+
+        reg = self.get_addr16(addr16)
+        result = reg >> 1
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
+
+        if reg & 0x01 == 1:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
+
+        self.set_addr16(result)
+
+        raise NotImplementedError('sra (HL)')
 
     def cpl(self):
         """0x2f: ~A"""
@@ -710,11 +806,13 @@ class Z80(object):
         raise NotImplementedError('rst')
 
     def di(self):
-        """0xf3"""
+        """0xf3 -- di
+        Disable interrupts."""
 
         raise NotImplementedError('di')
 
     def ei(self):
-        """0xfb"""
+        """0xfb -- ei
+        Enable interrupts."""
 
         raise NotImplementedError('ei')

@@ -552,12 +552,12 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 1)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_rla_reg8(self):
+    def test_rl_reg8(self):
         """Example from the Gameboy Programming Manual"""
 
         self.cpu.set_reg8('a', 0x95)
         self.cpu.set_carry_flag()
-        self.cpu.rla_reg8('a')
+        self.cpu.rl_reg8('a')
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x2b)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
@@ -565,13 +565,13 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_rlca_reg8(self):
+    def test_rlc_reg8(self):
         """Example from the Gameboy Programming Manual
         correction: result should be 0x0b, not 0x0a"""
 
         self.cpu.set_reg8('a', 0x85)
         self.cpu.reset_carry_flag()
-        self.cpu.rlca_reg8('a')
+        self.cpu.rlc_reg8('a')
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x0b)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
@@ -579,12 +579,12 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_rra_reg8(self):
+    def test_rr_reg8(self):
         """Example from the Gameboy Programming Manual"""
 
         self.cpu.set_reg8('a', 0x81)
         self.cpu.reset_carry_flag()
-        self.cpu.rra_reg8('a')
+        self.cpu.rr_reg8('a')
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x40)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
@@ -592,12 +592,12 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_rrca_reg8(self):
+    def test_rrc_reg8(self):
         """Example from the Gameboy Programming Manual"""
 
         self.cpu.set_reg8('a', 0x3b)
         self.cpu.reset_carry_flag()
-        self.cpu.rrca_reg8('a')
+        self.cpu.rrc_reg8('a')
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x9d)
         self.assertEqual(self.cpu.get_zero_flag(), 0)

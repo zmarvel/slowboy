@@ -1,3 +1,7 @@
+##########
+# Python #
+##########
+
 # PyCharm, vim
 .idea/*
 .*.swp
@@ -59,3 +63,10 @@ docs/_build/
 
 # PyBuilder
 target/
+
+##########
+# Misc   #
+##########
+
+# games 
+*.gb

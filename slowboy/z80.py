@@ -1,5 +1,6 @@
 
 from slowboy.util import uint8toBCD
+from slowboy.mmu import MMU
 
 
 class Z80(object):
@@ -18,7 +19,7 @@ class Z80(object):
         }
         self.sp = 0
         self.pc = 0
-        return
+        self.mmu = MMU()
 
     def get_registers(self):
         return self.registers
@@ -646,7 +647,7 @@ class Z80(object):
         """0x20-0x25, 0x27
         Logical shift (addr16) left 1 and place old bit 0 in CF."""
 
-        reg = self.get_addr16(addr16)
+        reg = self.mmu.get_addr(addr16)
         result = reg << 1
 
         if result & 0xff == 0:
@@ -662,7 +663,7 @@ class Z80(object):
         else:
             self.reset_carry_flag()
 
-        self.set_addr16(result)
+        self.mmu.set_addr(result)
 
         raise NotImplementedError('sla (HL)')
 
@@ -694,7 +695,7 @@ class Z80(object):
         """0x20-0x25, 0x27
         Logical shift (addr16) right 1 and place old bit 7 in CF."""
 
-        reg = self.get_addr16(addr16)
+        reg = self.mmu.get_addr(addr16)
         result = reg >> 1
 
         if result & 0xff == 0:
@@ -710,7 +711,7 @@ class Z80(object):
         else:
             self.reset_carry_flag()
 
-        self.set_addr16(result)
+        self.mmu.set_addr(addr16, result)
 
         raise NotImplementedError('sra (HL)')
 

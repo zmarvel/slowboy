@@ -358,7 +358,7 @@ class TestZ80(unittest.TestCase):
         addr16 = 0xc000
         
         self.cpu.set_reg8('a', 0x3e)
-        self.cpu.set_addr16(addr16, 0x40)
+        self.cpu.mmu.set_addr(addr16, 0x40)
         self.cpu.sub_addr16fromreg8(addr16, 'a')
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xfe)
@@ -413,7 +413,7 @@ class TestZ80(unittest.TestCase):
         addr16 = 0xc000
 
         self.cpu.set_reg8('a', 0xaa)
-        self.cpu.set_addr16(addr16, 0x55)
+        self.cpu.mmu.set_addr(addr16, 0x55)
         self.cpu.and_addr16(addr16)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
@@ -454,7 +454,7 @@ class TestZ80(unittest.TestCase):
         addr16 = 0xc000
 
         self.cpu.set_reg8('a', 0xaa)
-        self.cpu.set_addr16(addr16, 0x55)
+        self.cpu.mmu.set_addr(addr16, 0x55)
         self.or_addr16(addr16)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xff)
@@ -542,11 +542,11 @@ class TestZ80(unittest.TestCase):
         addr16 = 0xc000
 
         self.cpu.set_reg8('a', 0x3c)
-        self.cpu.set_addr16(addr16, 0x40)
+        self.cpu.mmu.set_addr(addr16, 0x40)
         self.cpu.cp_reg8toaddr16('a', addr16)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x3c)
-        self.assertEqual(self.cpu.get_addr16(addr16), 0x40)
+        self.assertEqual(self.cpu.mmu.get_addr(addr16), 0x40)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
         self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
         self.assertEqual(self.cpu.get_sub_flag(), 1)

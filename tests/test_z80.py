@@ -831,6 +831,7 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sp(), 0xcffe)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
+
     def test_stop(self):
         # TODO
         # for now, just make sure no exceptions are raised. later, we want to

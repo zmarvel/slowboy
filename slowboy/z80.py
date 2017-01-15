@@ -536,7 +536,15 @@ class Z80(object):
         """0xb6 -- or (HL)
         a = a | (addr16)"""
 
-        raise NotImplementedError('or (HL)')
+        result = self.get_reg8('a') | self.mmu.get_addr(addr16)
+        self.set_reg8('a', result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        self.reset_sub_flag()
 
     def xor_reg8(self, reg8):
         """0xa8-af, except 0xae -- xor reg8
@@ -601,7 +609,24 @@ class Z80(object):
     def cp_reg8toaddr16(self, reg8, addr16):
         """0xbe: TODO, similar to `cp_reg8toreg8`"""
 
-        raise NotImplementedError('cp (HL)')
+        result = self.get_reg8(reg8) - self.mmu.get_addr(addr16)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if result > 0:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.set_sub_flag()
+
+        if result < 0:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
     def rl_reg8(self, reg8):
         """0x17, CB 0x10-0x17

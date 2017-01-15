@@ -143,26 +143,50 @@ class Z80(object):
         self.set_reg16(reg16, imm16)
 
     def ld_reg8toaddr16(self, reg8, addr16, inc=False, dec=False):
-        """0x02, 0x12, 0x22, 0x32"""
-        # TODO
+        """0x02, 0x12, 0x22, 0x32
 
-        raise NotImplementedError('ld (reg16), reg8 / ld (imm16), reg8')
+        If addr16 is a string such as 'BC', an address will be read from that
+        double-register. Otherwise, it will be taken literally."""
+
+        if isinstance(addr16, str):
+            reg16 = addr16
+            addr16 = self.get_reg16(reg16)
+
+        self.mmu.set_addr(addr16, self.get_reg8(reg8))
+
+        if inc:
+            self.set_reg16(reg16, self.get_reg16(reg16) + 1)
+        elif dec:
+            self.set_reg16(reg16, self.get_reg16(reg16) - 1)
 
     def ld_addr16toreg8(self, addr16, reg8):
-        """0x0a, 0x1a, 0x4e, 0x5e, 0x6e, 0x7e, 0x77, 0x46, 0x56, 0x66"""
+        """0x0a, 0x1a, 0x4e, 0x5e, 0x6e, 0x7e, 0x77, 0x46, 0x56, 0x66
 
-        raise NotImplementedError('ld reg8, (reg16) / ld reg8, (addr16)')
+        If addr16 is a string such as 'BC', an address will be read from that
+        double-register. Otherwise, it will be taken literally."""
+
+        if isinstance(addr16, str):
+            reg16 = addr16
+            addr16 = self.get_reg16(reg16)
+
+            self.set_reg8(reg8, self.mmu.get_addr(addr16))
+        else:
+            self.set_reg8(reg8, self.mmu.get_addr(addr16))
 
     def ld_sptoaddr16(self, addr16):
         """0x08"""
-        # TODO
 
-        raise NotImplementedError('ld (imm16), SP')
+        if isinstance(addr16, str):
+            reg16 = addr16
+            addr16 = self.get_reg16(reg16)
+
+        self.mmu.set_addr(addr16, self.get_sp())
 
     def ld_imm8toaddrHL(self, imm8):
         """0x36"""
 
-        raise NotImplementedError('ld (HL), imm8')
+        addr16 = self.get_reg16('hl')
+        self.mmu.set_addr(addr16, imm8)
 
     def inc_reg8(self, reg8):
         """0x04, 0x14, 0x24, 0x34 -- inc reg8
@@ -239,12 +263,14 @@ class Z80(object):
     def inc_addrHL(self):
         """0x34 -- inc (HL)"""
 
-        raise NotImplementedError('inc *(HL)')
+        addr16 = self.get_reg16('hl')
+        self.mmu.set_addr(addr16, self.mmu.get_addr(addr16) + 1)
 
     def dec_addrHL(self):
         """0x35 -- dec (HL)"""
 
-        raise NotImplementedError('dec *(HL)')
+        addr16 = self.get_reg16('hl')
+        self.mmu.set_addr(addr16, self.mmu.get_addr(addr16) - 1)
 
     def add_reg16toregHL(self, reg16):
         """0x09, 0x19, 0x29, 0x39 -- add HL, reg16"""
@@ -382,7 +408,35 @@ class Z80(object):
     def sub_addr16fromreg8(self, addr16, reg8, carry=False):
         """0x96, 0x9e -- sub/sbc (HL)"""
 
-        raise NotImplementedError('sub (HL), sbc (HL)')
+        x = self.get_reg8(reg8)
+        if isinstance(addr16, str):
+            y = self.mmu.get_addr(self.get_reg16(addr16))
+        else:
+            y = self.mmu.get_addr(addr16)
+
+        if carry:
+            raise NotImplementedError('sbc (HL)')
+        else:
+            result = x + (((y ^ 0xff) + 1) & 0xff)
+
+        self.set_reg8(reg8, result)
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if ((x & 0x0f) + ((y ^ 0xff) & 0x0f) + 1) > 0x0f:
+            self.reset_halfcarry_flag()
+        else:
+            self.set_halfcarry_flag()
+
+        self.set_sub_flag()
+
+        if result > 0xff:
+            self.reset_carry_flag()
+        else:
+            self.set_carry_flag()
 
     def and_reg8(self, reg8):
         """0xa0–a7, except 0xa6 -- and reg8
@@ -428,7 +482,26 @@ class Z80(object):
         """0xa6 -- and (HL)
         a = a & (addr16)"""
 
-        raise NotImplementedError('and (HL)')
+        if isinstance(addr16, str):
+            addr16 = self.get_reg16(addr16)
+
+        x = self.get_reg8('a')
+        y = self.mmu.get_addr(addr16)
+        result = x & y
+        self.set_reg8('a', result)
+
+        if result == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if (result >> 4) & 0x1 == 1:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.reset_sub_flag()
+        self.reset_carry_flag()
 
     def or_reg8(self, reg8):
         """0xb0–b7, except 0xb6 -- or reg8
@@ -757,9 +830,8 @@ class Z80(object):
         """0x18 --- jr imm8
         Relative jump by a signed immediate."""
 
-        # TODO: this should be two's complement addition
-
-        self.set_pc(self.get_pc() + imm8)
+        off = (imm8 ^ 0x80) - 0x80
+        self.set_pc(self.get_pc() + off)
 
     def jp_condtoaddr16(self, cond, addr16):
         """0xc2, 0xd2, 0xca, 0xda

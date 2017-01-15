@@ -171,24 +171,51 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('C'), 6)
 
     def test_ld_reg8toaddr16(self):
-        # TODO
+        for x in range(256):
+            self.cpu.set_reg8('a', x)
+            self.cpu.set_reg16('bc', 0xc000 + x)
+            self.cpu.ld_reg8toaddr16('a', 'bc')
+            self.assertEqual(self.cpu.mmu.get_addr(0xc000 + x), x)
 
-        self.cpu.ld_reg8toaddr16('a', 0xc000)
+    def test_ld_reg8toaddr16_2(self):
+        for x in range(256):
+            self.cpu.set_reg8('a', x)
+            self.cpu.ld_reg8toaddr16('a', 0xc000 + x)
+            self.assertEqual(self.cpu.mmu.get_addr(0xc000 + x), x)
 
     def test_ld_addr16toreg8(self):
-        # TODO
+        for x in range(256):
+            self.cpu.mmu.set_addr(0xd000 + x, x)
+            self.cpu.ld_addr16toreg8(0xd000 + x, 'c')
+            self.assertEqual(self.cpu.get_reg8('c'), x)
 
-        self.cpu.ld_addr16toreg8(0xc000, 'a')
+    def test_ld_addr16toreg8_2(self):
+        for x in range(256):
+            self.cpu.mmu.set_addr(0xd000 + x, x)
+            self.cpu.set_reg16('hl', 0xd000 + x)
+            self.cpu.ld_addr16toreg8('hl', 'c')
+            self.assertEqual(self.cpu.get_reg8('c'), x)
 
     def test_ld_sptoaddr16(self):
-        # TODO
+        for x in range(2**10):
+            self.cpu.set_sp(x)
+            self.cpu.ld_sptoaddr16(0xd000 + x)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), self.cpu.get_sp())
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), x)
 
-        self.cpu.ld_sptoaddr16(0xc000)
+    def test_ld_sptoaddr16_2(self):
+        for x in range(2**10):
+            self.cpu.set_sp(x)
+            self.cpu.set_reg16('bc', 0xd000 + x)
+            self.cpu.ld_sptoaddr16('bc')
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), self.cpu.get_sp())
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), x)
 
     def test_ld_imm8toaddrHL(self):
-        # TODO
-
-        self.cpu.ld_imm8toaddrHL(5)
+        for x in range(2**8):
+            self.cpu.set_reg16('hl', 0xcfff)
+            self.cpu.ld_imm8toaddrHL(x)
+            self.assertEqual(self.cpu.mmu.get_addr(0xcfff), x)
 
     def test_ld_imm16toreg16(self):
         self.cpu.ld_imm16toreg16(0x0123, 'BC')
@@ -455,7 +482,7 @@ class TestZ80(unittest.TestCase):
 
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.mmu.set_addr(addr16, 0x55)
-        self.or_addr16(addr16)
+        self.cpu.or_addr16(addr16)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xff)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
@@ -637,9 +664,9 @@ class TestZ80(unittest.TestCase):
 
     def test_jr_imm8(self):
         self.cpu.set_pc(0x1000)
-        self.cpu.jr_imm8(0x20)
+        self.cpu.jr_imm8(0x22)
 
-        self.assertEqual(self.cpu.get_pc(), 0x1020)
+        self.assertEqual(self.cpu.get_pc(), 0x1022)
 
     def test_jr_imm8_2(self):
         self.cpu.set_pc(0x1000)

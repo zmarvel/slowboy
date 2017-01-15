@@ -9,9 +9,7 @@ easy-to-read codebase for others who want to emulate this system.
 
 ## TODO
 
-* CPU instructions that don't require MMU
-* MMU
-* CPU instructions that require MMU
+* complete instruction set
 * Graphics
 * Audio
 

@@ -800,13 +800,13 @@ class TestZ80(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
-        self.cpu.ret(cond='z')
+        self.cpu.ret(cond='h')
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
 
-        self.cpu.set_zero_flag()
-        self.cpu.ret(cond='z')
+        self.cpu.set_halfcarry_flag()
+        self.cpu.ret(cond='h')
 
         self.assertEqual(self.cpu.get_pc(), 0xc000)
         self.assertEqual(self.cpu.get_sp(), 0xd002)

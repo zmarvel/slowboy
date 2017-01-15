@@ -199,17 +199,26 @@ class TestZ80(unittest.TestCase):
     def test_ld_sptoaddr16(self):
         for x in range(2**10):
             self.cpu.set_sp(x)
-            self.cpu.ld_sptoaddr16(0xd000 + x)
-            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), self.cpu.get_sp())
-            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), x)
+            self.cpu.ld_sptoaddr16(0xd000 + 2*x)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x),
+                    self.cpu.get_sp() >> 8)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x + 1),
+                    self.cpu.get_sp() & 0xff)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x), x >> 8)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x + 1),
+                    x & 0xff)
 
     def test_ld_sptoaddr16_2(self):
         for x in range(2**10):
             self.cpu.set_sp(x)
-            self.cpu.set_reg16('bc', 0xd000 + x)
+            self.cpu.set_reg16('bc', 0xd000 + 2*x)
             self.cpu.ld_sptoaddr16('bc')
-            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), self.cpu.get_sp())
-            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + x), x)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x),
+                    self.cpu.get_sp() >> 8)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x + 1),
+                    self.cpu.get_sp() & 0xff)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x), x >> 8)
+            self.assertEqual(self.cpu.mmu.get_addr(0xd000 + 2*x + 1), x & 0xff)
 
     def test_ld_imm8toaddrHL(self):
         for x in range(2**8):

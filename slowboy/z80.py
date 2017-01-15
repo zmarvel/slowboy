@@ -180,7 +180,8 @@ class Z80(object):
             reg16 = addr16
             addr16 = self.get_reg16(reg16)
 
-        self.mmu.set_addr(addr16, self.get_sp())
+        self.mmu.set_addr(addr16, self.get_sp() >> 8)
+        self.mmu.set_addr(addr16 + 1, self.get_sp() & 0xff)
 
     def ld_imm8toaddrHL(self, imm8):
         """0x36"""

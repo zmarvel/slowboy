@@ -37,7 +37,7 @@ class MMU():
             return self.wram[addr - 0xc000]
         elif addr < 0xe000:
             # WRAM 1 (4 KB)
-            return self.wram[addr - 0xd000]
+            return self.wram[addr - 0xc000]
         elif addr < 0xfe00:
             # echo RAM 0xc000–ddff
             return self.get_addr(addr - 0x2000)

@@ -732,12 +732,84 @@ class TestZ80(unittest.TestCase):
         self.cpu.jp_condtoaddr16('C', 0xd000)
         self.assertEqual(self.cpu.get_pc(), 0xd000)
 
-    def test_ret_cond(self):
-        raise NotImplementedError('test_ret_cond')
-
     def test_ret(self):
-        raise NotImplementedError('test_ret')
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+        self.cpu.mmu.set_addr(0xd000, 0x00)
+        self.cpu.mmu.set_addr(0xd001, 0xc0)
 
+        self.cpu.ret()
+
+        self.assertEqual(self.cpu.get_pc(), 0xc000)
+        self.assertEqual(self.cpu.get_sp(), 0xd002)
+
+    def test_ret_cond(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+        self.cpu.mmu.set_addr(0xd000, 0x00)
+        self.cpu.mmu.set_addr(0xd001, 0xc0)
+
+        self.cpu.ret(cond='z')
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+
+        self.cpu.set_zero_flag()
+        self.cpu.ret(cond='z')
+
+        self.assertEqual(self.cpu.get_pc(), 0xc000)
+        self.assertEqual(self.cpu.get_sp(), 0xd002)
+
+    def test_ret_cond_2(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+        self.cpu.mmu.set_addr(0xd000, 0x00)
+        self.cpu.mmu.set_addr(0xd001, 0xc0)
+
+        self.cpu.ret(cond='c')
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+
+        self.cpu.set_carry_flag()
+        self.cpu.ret(cond='c')
+
+        self.assertEqual(self.cpu.get_pc(), 0xc000)
+        self.assertEqual(self.cpu.get_sp(), 0xd002)
+
+    def test_ret_cond_3(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+        self.cpu.mmu.set_addr(0xd000, 0x00)
+        self.cpu.mmu.set_addr(0xd001, 0xc0)
+
+        self.cpu.ret(cond='s')
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+
+        self.cpu.set_sub_flag()
+        self.cpu.ret(cond='s')
+
+        self.assertEqual(self.cpu.get_pc(), 0xc000)
+        self.assertEqual(self.cpu.get_sp(), 0xd002)
+
+    def test_ret_cond_4(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+        self.cpu.mmu.set_addr(0xd000, 0x00)
+        self.cpu.mmu.set_addr(0xd001, 0xc0)
+
+        self.cpu.ret(cond='z')
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+
+        self.cpu.set_zero_flag()
+        self.cpu.ret(cond='z')
+
+        self.assertEqual(self.cpu.get_pc(), 0xc000)
+        self.assertEqual(self.cpu.get_sp(), 0xd002)
     def test_reti(self):
         raise NotImplementedError('test_reti')
 

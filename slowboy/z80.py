@@ -882,6 +882,31 @@ class Z80(object):
 
         self.set_pc(addr16)
 
+    def ret(self, cond=None):
+        """0xc9 -- ret"""
+
+        if cond == 'z':
+            if self.get_zero_flag() == 0:
+                return
+        elif cond == 'c':
+            if self.get_carry_flag() == 0:
+                return
+        elif cond == 's':
+            if self.get_sub_flag() == 0:
+                return
+        elif cond == 'h':
+            if self.get_halfcarry_flag() == 0:
+                return
+
+        sp = self.get_sp()
+        pc = self.mmu.get_addr(sp + 1) << 8 | self.mmu.get_addr(sp)
+        self.set_pc(pc)
+        self.set_sp(sp + 2)
+
+    def reti(self):
+        """0xd9 -- reti"""
+        raise NotImplementedError('reti')
+
     def ret_cond(self, cond):
         """0xc0, 0xc8, 0xc9, 0xd0, 0xd8, 0xd9 -- ret / reti / ret cond
         cond may be one of Z, C, S, H."""

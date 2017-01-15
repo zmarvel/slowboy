@@ -872,7 +872,12 @@ class Z80(object):
     def call_addr16(self, addr16):
         """0xcd -- call addr16"""
 
-        raise NotImplementedError('call addr16')
+        pc = self.get_pc()
+        sp = self.get_sp()
+        self.mmu.set_addr(sp - 1, pc >> 8)
+        self.mmu.set_addr(sp - 2, pc & 0xff)
+        self.set_pc(addr16)
+        self.set_sp(sp - 2)
 
     def rst(self):
         """0xc7, 0xd7, 0xe7, 0xf7, 0xcf, 0xdf, 0xef, 0xff -- rst xxH"""

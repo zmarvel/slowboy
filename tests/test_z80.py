@@ -733,30 +733,27 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_pc(), 0xd000)
 
     def test_ret_cond(self):
-        # TODO
-
-        self.cpu.ret_cond('')
+        raise NotImplementedError('test_ret_cond')
 
     def test_ret(self):
-        # TODO
-
-        self.cpu.ret()
+        raise NotImplementedError('test_ret')
 
     def test_reti(self):
-        # TODO
-
-        self.cpu.reti()
+        raise NotImplementedError('test_reti')
 
     def test_call_addr16(self):
-        # TODO
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
 
-        self.cpu.call_addr16(0xc000)
+        self.cpu.call_addr16(0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
+        self.assertEqual(self.cpu.get_sp(), 0xcffe)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
 
     def test_call_condtoaddr16(self):
-        # TODO
-
-        self.cpu.reset_zero_flag()
-        self.cpu.call_condtoaddr16('NZ', 0xc000)
+        raise NotImplementedError('test_call_condtoaddr16')
 
     def test_stop(self):
         # TODO

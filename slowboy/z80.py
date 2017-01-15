@@ -859,15 +859,42 @@ class Z80(object):
 
     def ret_cond(self, cond):
         """0xc0, 0xc8, 0xc9, 0xd0, 0xd8, 0xd9 -- ret / reti / ret cond
-        cond may be one of Z, C, NZ, NC."""
+        cond may be one of Z, C, S, H."""
 
         raise NotImplementedError('ret / reti')
 
     def call_condtoaddr16(self, cond, addr16):
         """0xc4, 0xd4, 0xcc, 0xdc -- call cond, addr16
-        cond may be one of Z, C, NZ, NC."""
+        cond may be one of Z, C, S, H."""
 
-        raise NotImplementedError('call cond, addr16')
+        pc = self.get_pc()
+        sp = self.get_sp()
+
+        cond = cond.lower()
+        if cond == 'z':
+            if self.get_zero_flag() == 1:
+                self.mmu.set_addr(sp - 1, pc >> 8)
+                self.mmu.set_addr(sp - 2, pc & 0xff)
+                self.set_pc(addr16)
+                self.set_sp(sp - 2)
+        elif cond == 'c':
+            if self.get_carry_flag() == 1:
+                self.mmu.set_addr(sp - 1, pc >> 8)
+                self.mmu.set_addr(sp - 2, pc & 0xff)
+                self.set_pc(addr16)
+                self.set_sp(sp - 2)
+        elif cond == 's':
+            if self.get_sub_flag() == 1:
+                self.mmu.set_addr(sp - 1, pc >> 8)
+                self.mmu.set_addr(sp - 2, pc & 0xff)
+                self.set_pc(addr16)
+                self.set_sp(sp - 2)
+        elif cond == 'h':
+            if self.get_halfcarry_flag() == 1:
+                self.mmu.set_addr(sp - 1, pc >> 8)
+                self.mmu.set_addr(sp - 2, pc & 0xff)
+                self.set_pc(addr16)
+                self.set_sp(sp - 2)
 
     def call_addr16(self, addr16):
         """0xcd -- call addr16"""

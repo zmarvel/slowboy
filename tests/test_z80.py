@@ -753,8 +753,84 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
 
     def test_call_condtoaddr16(self):
-        raise NotImplementedError('test_call_condtoaddr16')
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
 
+        self.cpu.call_condtoaddr16('z', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x00)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x00)
+
+        self.cpu.set_zero_flag()
+
+        self.cpu.call_condtoaddr16('z', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
+        self.assertEqual(self.cpu.get_sp(), 0xcffe)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
+
+    def test_call_condtoaddr16_2(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+
+        self.cpu.call_condtoaddr16('c', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x00)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x00)
+
+        self.cpu.set_carry_flag()
+
+        self.cpu.call_condtoaddr16('c', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
+        self.assertEqual(self.cpu.get_sp(), 0xcffe)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
+
+    def test_call_condtoaddr16_3(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+
+        self.cpu.call_condtoaddr16('s', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x00)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x00)
+
+        self.cpu.set_sub_flag()
+
+        self.cpu.call_condtoaddr16('s', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
+        self.assertEqual(self.cpu.get_sp(), 0xcffe)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
+
+    def test_call_condtoaddr16_4(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+
+        self.cpu.call_condtoaddr16('h', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x1234)
+        self.assertEqual(self.cpu.get_sp(), 0xd000)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x00)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x00)
+
+        self.cpu.set_halfcarry_flag()
+
+        self.cpu.call_condtoaddr16('h', 0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
+        self.assertEqual(self.cpu.get_sp(), 0xcffe)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
     def test_stop(self):
         # TODO
         # for now, just make sure no exceptions are raised. later, we want to

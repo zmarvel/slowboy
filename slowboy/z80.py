@@ -1,9 +1,17 @@
 
+import enum
+
 from slowboy.util import uint8toBCD
 from slowboy.mmu import MMU
 
+class State(enum.Enum):
+    RUN = 0
+    HALT = 1
+    STOP = 2
 
 class Z80(object):
+    reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
+
     def __init__(self):
         self.clk = 0
         self.m = 0
@@ -19,6 +27,7 @@ class Z80(object):
         }
         self.sp = 0
         self.pc = 0
+        self.state = State.STOP
         self.mmu = MMU()
 
     def get_registers(self):
@@ -110,6 +119,35 @@ class Z80(object):
 
     def get_carry_flag(self):
         return (self.registers['f'] >> 4) & 1
+
+    def go(self):
+
+        self.state = State.RUN
+        while self.state == State.RUN:
+            # fetch
+            opcode = self.mmu.get_addr(self.get_pc())
+            self.inc_pc()
+
+            # decode
+            op, args = self.decode(opcode)
+
+            # execute
+            op(*args)
+
+    def decode(self, opcode):
+        """Call the appropriate method of `Z80` based on `opcode`.
+
+        TODO: Since this class is about 1000 lines now, I'm considering how to
+        split it up. A Decoder class might depend on other classes implementing
+        CPU instructions, each depending on and sharing a CPU state."""
+
+        if opcode & 0xc0 == 0x40:
+            print('{opcode:<#6x} ld rd, rs'.format(opcode=opcode))
+            rd = (opcode >> 3) & 0x07
+            rs = opcode & 0x07
+            return self.ld_reg8toreg8, (self.reglist[rs], self.reglist[rs])
+        else:
+            raise ValueError('Unrecognized opcode {:#x}'.format(opcode))
 
     def nop(self):
         """0x00"""

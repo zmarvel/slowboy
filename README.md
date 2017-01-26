@@ -15,14 +15,28 @@ easy-to-read codebase for others who want to emulate this system.
 
 ## Installation
 
-So far this emulator doesn't do enough to make installation useful.
+After installing this emulator, you currently won't have anything interesting
+unless you want to hack on it. If that's what you're interested in, forge ahead!
+
 
 ## Development
 
-To hack on this project, just clone the repository. I'm using Python's
-`unittest` for now.
+After cloning the repository, you can install the project for development with
 
---------------------------------------------------------------------------------
+```
+$ pip install --editable .
+```
 
-This document will be updated as the project develops. To contact me, please
-visit my website.
+You can run the tests from the root of the project with
+
+```
+$ python -m unittest discover tests
+```
+
+Additionally, if you have [coverage][coverage] installed, you can use that:
+
+```
+$ coverage --source slowboy -m unittest discover tests
+```
+
+[coverage]: https://pypi.python.org/pypi/coverage/

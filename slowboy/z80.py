@@ -988,94 +988,111 @@ class Z80(object):
         return cp
 
     def rl_reg8(self, reg8):
-        """0x17, CB 0x10-0x17
-        shift reg8 left 1, place old bit 7 in CF, place old CF in bit 0."""
+        """Returns a function that shift :py:data:reg8 left 1, places the old
+        bit 7 in the carry flag, and places old carry flag in bit 0.
+        
+        :param reg8: the number of bits to shift
+        :rtype None → None"""
 
-        last_carry = self.get_carry_flag()
-        reg = self.get_reg8(reg8)
-        result = (reg << 1) | last_carry
+        def rl():
+            last_carry = self.get_carry_flag()
+            reg = self.get_reg8(reg8)
+            result = (reg << 1) | last_carry
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if reg & 0x80 == 0x80:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if reg & 0x80 == 0x80:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.set_reg8(reg8, result)
+            self.set_reg8(reg8, result)
+        return rl
 
     def rlc_reg8(self, reg8):
-        """0x07, CB 0x00-0x07
-        shift reg8 left 1, place old bit 7 in CF and bit 0."""
+        """Returns a function that shifts :py:data:reg8 left 1, then 
+        places the old bit 7 in the carry flag and bit 0.
+        
+        :param reg8: number of bits to rotate
+        :rtype None → None"""
 
-        reg = self.get_reg8(reg8)
-        result = (reg << 1) | (reg >> 7)
+        def rlc():
+            reg = self.get_reg8(reg8)
+            result = (reg << 1) | (reg >> 7)
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if reg & 0x80 == 0x80:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if reg & 0x80 == 0x80:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.set_reg8(reg8, result)
+            self.set_reg8(reg8, result)
+        return rlc
 
     def rr_reg8(self, reg8):
-        """0x1f, CB 0x18-0x1f
-        shift reg8 right 1, place old bit 0 in CF, place old CF in bit 7."""
+        """Returns a function that shifts :py:data:reg8 right 1, places the old
+        bit 0 in the carry flag, and place old carry in bit 7.
+        
+        :param reg8: the operand single register
+        :rtype: None → None"""
 
-        last_carry = self.get_carry_flag()
-        reg = self.get_reg8(reg8)
-        result = (reg >> 1) | (last_carry << 7)
+        def rr():
+            last_carry = self.get_carry_flag()
+            reg = self.get_reg8(reg8)
+            result = (reg >> 1) | (last_carry << 7)
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if reg & 0x01 == 0x01:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if reg & 0x01 == 0x01:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.set_reg8(reg8, result)
+            self.set_reg8(reg8, result)
+        return rr
 
     def rrc_reg8(self, reg8):
         """0x0f, CB 0x08-0x0f
         logical shift reg8 right 1, place old bit 0 in CF and bit 7."""
 
-        reg = self.get_reg8(reg8)
-        result = (reg >> 1) | ((reg << 7) & 0x80)
+        def rrc():
+            reg = self.get_reg8(reg8)
+            result = (reg >> 1) | ((reg << 7) & 0x80)
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if reg & 0x01 == 0x01:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if reg & 0x01 == 0x01:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.set_reg8(reg8, result)
+            self.set_reg8(reg8, result)
+        return rrc
 
     def sla_reg8(self, reg8):
         """0x20-0x25, 0x27
@@ -1193,53 +1210,79 @@ class Z80(object):
 
         self.reset_carry_flag()
 
-    def jr_condtoimm8(self, cond, imm8):
-        """0x28, 0x38
-        Conditional relative jump by a signed immediate."""
+    def jr_condtoimm8(self, cond):
+        """Returns a function that takes a signed immediate and performs a
+        relative jump by this immediate if :py:data:cond is true.
+
+        :param cond: Z, NZ, C, NC
+        :rtype: int → None"""
 
         cond = cond.lower()
         if cond == 'z':
-            if self.get_zero_flag() == 1:
-                self.set_pc(self.get_pc() + imm8)
+            def jr(imm8):
+                if self.get_zero_flag() == 1:
+                    self.set_pc(self.get_pc() + imm8)
         elif cond == 'nz':
-            if self.get_zero_flag() == 0:
-                self.set_pc(self.get_pc() + imm8)
+            def jr(imm8):
+                if self.get_zero_flag() == 0:
+                    self.set_pc(self.get_pc() + imm8)
         elif cond == 'c':
-            if self.get_carry_flag() == 1:
-                self.set_pc(self.get_pc() + imm8)
+            def jr(imm8):
+                if self.get_carry_flag() == 1:
+                    self.set_pc(self.get_pc() + imm8)
         elif cond == 'nc':
-            if self.get_carry_flag() == 0:
-                self.set_pc(self.get_pc() + imm8)
+            def jr(imm8):
+                if self.get_carry_flag() == 0:
+                    self.set_pc(self.get_pc() + imm8)
+        return jr
 
     def jr_imm8(self, imm8):
-        """0x18 --- jr imm8
-        Relative jump by a signed immediate."""
+        """Performs an unconditional jump by :py:data:imm8.
+        
+        :param imm8: signed 8-bit immediate
+        :rtype: int → None"""
 
         off = (imm8 ^ 0x80) - 0x80
         self.set_pc(self.get_pc() + off)
 
-    def jp_condtoaddr16(self, cond, addr16):
-        """0xc2, 0xd2, 0xca, 0xda
-        Conditional absolute jump to 16-bit address."""
+    def jp_condtoaddr16(self, cond):
+        """Returns a function taking a 16-bit immediate that conditionally
+        performs an absolute jump to that immediate if :py:data:cond is met.
+
+        :param cond: Z, NZ, C, NC
+        :rtype: int → None"""
 
         cond = cond.lower()
         if cond == 'z':
-            if self.get_zero_flag() == 1:
-                self.set_pc(addr16)
+            def jr(imm16):
+                if self.get_zero_flag() == 1:
+                    self.set_pc(imm16)
         elif cond == 'nz':
-            if self.get_zero_flag() == 0:
-                self.set_pc(addr16)
+            def jr(imm16):
+                if self.get_zero_flag() == 0:
+                    self.set_pc(imm16)
         elif cond == 'c':
-            if self.get_carry_flag() == 1:
-                self.set_pc(addr16)
+            def jr(imm16):
+                if self.get_carry_flag() == 1:
+                    self.set_pc(imm16)
         elif cond == 'nc':
-            if self.get_carry_flag() == 0:
-                self.set_pc(addr16)
+            def jr(imm16):
+                if self.get_carry_flag() == 0:
+                    self.set_pc(imm16)
+        return jr
 
-    def jp_addr16(self, addr16):
-        """0xc3, 0xe9 -- jp addr16"""
+    def jp_imm16addr(self, imm16):
+        """Performs an uncoditional jump to the address :py:data:imm16"""
 
-        self.set_pc(addr16)
+        self.set_pc(imm16)
+
+    def jp_reg16addr(self, reg16):
+        """Returns a function that performs an uncoditional jump to the address
+        in :py:data:reg16"""
+
+        def jp():
+            self.set_pc(self.get_reg16(reg16))
+        return jp
 
     def ret(self, cond=None):
         """0xc9 -- ret"""

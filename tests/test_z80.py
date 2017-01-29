@@ -615,7 +615,7 @@ class TestZ80(unittest.TestCase):
     def test_cp_reg8toreg8(self):
         self.cpu.set_reg8('b', 0x5d)
         self.cpu.set_reg8('d', 0x4d)
-        self.cpu.cp_reg8toreg8('b', 'd')
+        self.cpu.cp_reg8toreg8('b', 'd')()
 
         self.assertEqual(self.cpu.get_reg8('b'), 0x5d)
         self.assertEqual(self.cpu.get_reg8('d'), 0x4d)
@@ -629,7 +629,7 @@ class TestZ80(unittest.TestCase):
 
         self.cpu.set_reg8('a', 0x3c)
         self.cpu.set_reg8('b', 0x2f)
-        self.cpu.cp_reg8toreg8('a', 'b')
+        self.cpu.cp_reg8toreg8('a', 'b')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x3c)
         self.assertEqual(self.cpu.get_reg8('b'), 0x2f)
@@ -638,7 +638,7 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 1)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
-        self.cpu.cp_reg8toreg8('b', 'a')
+        self.cpu.cp_reg8toreg8('b', 'a')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x3c)
         self.assertEqual(self.cpu.get_reg8('b'), 0x2f)
@@ -650,7 +650,7 @@ class TestZ80(unittest.TestCase):
     def test_cp_reg8toreg8_3(self):
         self.cpu.set_reg8('a', 0x3c)
         self.cpu.set_reg8('b', 0x3c)
-        self.cpu.cp_reg8toreg8('a', 'b')
+        self.cpu.cp_reg8toreg8('a', 'b')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x3c)
         self.assertEqual(self.cpu.get_reg8('b'), 0x3c)
@@ -659,14 +659,14 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 1)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
-    def test_cp_reg8toaddr16(self):
+    def test_cp_reg8toimm16addr(self):
         """Example from the Gameboy Programming Manual"""
 
         addr16 = 0xc000
 
         self.cpu.set_reg8('a', 0x3c)
         self.cpu.mmu.set_addr(addr16, 0x40)
-        self.cpu.cp_reg8toaddr16('a', addr16)
+        self.cpu.cp_reg8toimm16addr('a')(addr16)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x3c)
         self.assertEqual(self.cpu.mmu.get_addr(addr16), 0x40)
@@ -674,6 +674,24 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
         self.assertEqual(self.cpu.get_sub_flag(), 1)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_cp_reg8toreg16addr(self):
+        """Example from the Gameboy Programming Manual"""
+
+        addr16 = 0xc000
+
+        self.cpu.set_reg8('a', 0x3c)
+        self.cpu.mmu.set_addr(addr16, 0x40)
+        self.cpu.set_reg16('hl', addr16)
+        self.cpu.cp_reg8toreg16addr('a', 'hl')()
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x3c)
+        self.assertEqual(self.cpu.mmu.get_addr(addr16), 0x40)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 1)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
 
     def test_rl_reg8(self):
         """Example from the Gameboy Programming Manual"""

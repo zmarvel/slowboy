@@ -895,54 +895,97 @@ class Z80(object):
         return bxor
 
     def cp_reg8toreg8(self, reg8_1, reg8_2):
-        """0xb8–bf, except 0be
+        """Returns a function that compares :py:data:reg8_1 and :py:data:reg8_2
+        then sets the appropriate flags.
+
         Compare regA to regB means calculate regA - regB and
             * set Z if regA == regB
             * set NZ (reset Z) if regA != regB
             * set C if regA < regB
             * set NC (reset C) if regA >= regB
-        """
 
-        result = self.get_reg8(reg8_1) - self.get_reg8(reg8_2)
+        :rtype: None → None"""
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        def cp():
+            result = self.get_reg8(reg8_1) - self.get_reg8(reg8_2)
 
-        if result > 0:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.set_sub_flag()
+            if result > 0:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
 
-        if result < 0:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            self.set_sub_flag()
 
-    def cp_reg8toaddr16(self, reg8, addr16):
-        """0xbe: TODO, similar to `cp_reg8toreg8`"""
+            if result < 0:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+        return cp
 
-        result = self.get_reg8(reg8) - self.mmu.get_addr(addr16)
+    def cp_reg8toimm16addr(self, reg8):
+        """Returns a function that takes a 16-bit immediate and compares the
+        given :py:data:reg8 with the value at the address given by this
+        immediate, then sets the appropriate flags as specified in
+        :py:method:cp_reg8toreg8.
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        :param reg8: single register
+        :rtype: int → None"""
 
-        if result > 0:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+        def cp(imm16):
+            result = self.get_reg8(reg8) - self.mmu.get_addr(imm16)
 
-        self.set_sub_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        if result < 0:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if result > 0:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.set_sub_flag()
+
+            if result < 0:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+        return cp
+
+    def cp_reg8toreg16addr(self, reg8, reg16):
+        """Returns a function that compares the given :py:data:reg8 with the
+        value at address given by :py:data:reg16, then sets the appropriate
+        flags as specified in :py:method:cp_reg8toreg8.
+
+        :param reg8: single register
+        :param reg16: double register holding an address
+        :rtype: int → None"""
+
+        def cp():
+            result = self.get_reg8(reg8) - self.mmu.get_addr(self.get_reg16(reg16))
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            if result > 0:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.set_sub_flag()
+
+            if result < 0:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+        return cp
 
     def rl_reg8(self, reg8):
         """0x17, CB 0x10-0x17

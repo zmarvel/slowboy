@@ -751,78 +751,148 @@ class Z80(object):
         return band
 
     def or_reg8(self, reg8):
-        """0xb0–b7, except 0xb6 -- or reg8
-        a = a | reg8"""
+        """Returns a function that stores the result of bitwise OR between
+        :py:data:reg8 and A in the accumulator register A.
 
-        result = self.get_reg8('a') | self.get_reg8(reg8)
-        self.set_reg8('a', result)
+        :param reg8: single operand register
+        :rtype: None → None"""
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        def bor():
+            result = self.get_reg8('a') | self.get_reg8(reg8)
+            self.set_reg8('a', result)
 
-        self.reset_sub_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-    def or_imm8(self, imm8):
-        """0xf6 -- or imm8
-        a = a | imm8"""
+            self.reset_sub_flag()
+        return bor
 
-        result = self.get_reg8('a') | imm8
-        self.set_reg8('a', result)
+    def or_imm8(self):
+        """Returns a function that performs a bitwise OR between its single
+        8-bit immediate parameter and A, then stores the result in A.
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        :rtype: int → None"""
 
-        self.reset_sub_flag()
+        def bor(imm8):
+            result = self.get_reg8('a') | imm8
+            self.set_reg8('a', result)
 
-    def or_addr16(self, addr16):
-        """0xb6 -- or (HL)
-        a = a | (addr16)"""
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        result = self.get_reg8('a') | self.mmu.get_addr(addr16)
-        self.set_reg8('a', result)
+            self.reset_sub_flag()
+        return bor
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+    def or_imm16addr(self):
+        """Returns a function that performs a bitwise OR between the value at
+        the address given by the function's single 16-bit immediate parameter
+        and A, then stores the result in A.
 
-        self.reset_sub_flag()
+        :rtype: int → None"""
+
+        def bor(imm16):
+            result = self.get_reg8('a') | self.mmu.get_addr(imm16)
+            self.set_reg8('a', result)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            self.reset_sub_flag()
+        return bor
+
+    def or_reg16addr(self, reg16):
+        """Returns a function that performs a bitwise OR between the value at
+        the address given by the function's single 16-bit immediate parameter
+        and A, then stores the result in A.
+
+        :rtype: None → None"""
+
+        def bor():
+            result = self.get_reg8('a') | self.mmu.get_addr(self.get_reg16(reg16))
+            self.set_reg8('a', result)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            self.reset_sub_flag()
+        return bor
 
     def xor_reg8(self, reg8):
-        """0xa8-af, except 0xae -- xor reg8
-        a = a ^ reg8"""
+        """Returns a function that performs a bitwise XOR between :py:data:reg8
+        and A and stores the result in A.
 
-        result = self.get_reg8('a') ^ self.get_reg8(reg8)
-        self.set_reg8('a', result)
+        :param reg8: the single register operand
+        :rtype: None → None"""
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        def bxor():
+            result = self.get_reg8('a') ^ self.get_reg8(reg8)
+            self.set_reg8('a', result)
 
-        self.reset_sub_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-    def xor_imm8(self, imm8):
-        """0xee -- xor imm8
-        a = a ^ imm8"""
+            self.reset_sub_flag()
+        return bxor
 
-        result = self.get_reg8('a') ^ imm8
-        self.set_reg8('a', result)
+    def xor_imm8(self):
+        """Returns a function that performs a bitwise XOR between its 8-bit
+        immediate parameter and A and stores the result in A.
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        :rtype: int → None"""
 
-    def xor_addr16(self, addr16):
-        """0xae
-        a = a ^ (addr16)"""
+        def bxor(imm8):
+            result = self.get_reg8('a') ^ imm8
+            self.set_reg8('a', result)
 
-        raise NotImplementedError('xor (HL)')
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+        return bxor
+
+    def xor_imm16addr(self):
+        """Returns a function that performs a bitwise XOR between the value at
+        the address given by its 16-bit immediate parameter and A, then stores
+        the result in A.
+
+        :rtype: int → None"""
+
+        def bxor(imm16):
+            result = self.get_reg8('a') ^ self.mmu.get_addr(imm16)
+            self.set_reg8('a', result)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+        return bxor
+
+    def xor_reg16addr(self, reg16):
+        """Returns a function that performs a bitwise XOR between the value at
+        the address in :py:data:reg16 and A, then stores the result in A.
+
+        :param reg16: address of the operand
+        :rtype: None → None"""
+
+        def bxor():
+            result = self.get_reg8('a') ^ self.mmu.get_addr(self.get_reg16(reg16))
+            self.set_reg8('a', result)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+        return bxor
 
     def cp_reg8toreg8(self, reg8_1, reg8_2):
         """0xb8–bf, except 0be

@@ -517,7 +517,7 @@ class TestZ80(unittest.TestCase):
     def test_or_reg8(self):
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.set_reg8('b', 0x55)
-        self.cpu.or_reg8('b')
+        self.cpu.or_reg8('b')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xff)
         self.assertEqual(self.cpu.get_reg8('b'), 0x55)
@@ -527,7 +527,7 @@ class TestZ80(unittest.TestCase):
     def test_or_reg8_2(self):
         self.cpu.set_reg8('a', 0xff)
         self.cpu.set_reg8('b', 0x55)
-        self.cpu.or_reg8('b')
+        self.cpu.or_reg8('b')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xff)
         self.assertEqual(self.cpu.get_reg8('b'), 0x55)
@@ -536,18 +536,30 @@ class TestZ80(unittest.TestCase):
 
     def test_or_imm8(self):
         self.cpu.set_reg8('a', 0xaa)
-        self.cpu.or_imm8(0x50)
+        self.cpu.or_imm8()(0x50)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xfa)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
 
-    def test_or_addr16(self):
+    def test_or_imm16addr(self):
         addr16 = 0xc000
 
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.mmu.set_addr(addr16, 0x55)
-        self.cpu.or_addr16(addr16)
+        self.cpu.or_imm16addr()(addr16)
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0xff)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+
+    def test_or_reg16addr(self):
+        addr16 = 0xc000
+
+        self.cpu.set_reg8('a', 0xaa)
+        self.cpu.mmu.set_addr(addr16, 0x55)
+        self.cpu.set_reg16('hl', addr16)
+        self.cpu.or_reg16addr('hl')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xff)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
@@ -556,7 +568,7 @@ class TestZ80(unittest.TestCase):
     def test_xor_reg8(self):
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.set_reg8('h', 0x55)
-        self.cpu.xor_reg8('h')
+        self.cpu.xor_reg8('h')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xff)
         self.assertEqual(self.cpu.get_reg8('h'), 0x55)
@@ -566,7 +578,7 @@ class TestZ80(unittest.TestCase):
     def test_xor_reg8_2(self):
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.set_reg8('b', 0xaa)
-        self.cpu.xor_reg8('b')
+        self.cpu.xor_reg8('b')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
         self.assertEqual(self.cpu.get_reg8('b'), 0xaa)
@@ -575,7 +587,26 @@ class TestZ80(unittest.TestCase):
 
     def test_xor_imm8(self):
         self.cpu.set_reg8('a', 0x55)
-        self.cpu.xor_imm8(0xaa)
+        self.cpu.xor_imm8()(0xaa)
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0xff)
+        self.assertEqual(self.cpu.get_zero_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+
+    def test_xor_imm16addr(self):
+        self.cpu.set_reg8('a', 0xaa)
+        self.cpu.mmu.set_addr(0xc000, 0xaa)
+        self.cpu.xor_imm16addr()(0xc000)
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x00)
+        self.assertEqual(self.cpu.get_zero_flag(), 1)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+
+    def test_xor_imm16addr(self):
+        self.cpu.set_reg8('a', 0xaa)
+        self.cpu.mmu.set_addr(0xc000, 0x55)
+        self.cpu.set_reg16('hl', 0xc000)
+        self.cpu.xor_reg16addr('hl')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0xff)
         self.assertEqual(self.cpu.get_zero_flag(), 0)

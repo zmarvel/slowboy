@@ -167,59 +167,137 @@ class Z80(object):
 
         pass
 
-    def ld_imm8toreg8(self, imm8, reg8):
-        """0x06, 0x16, 0x26"""
+    def ld_imm8toreg8(self, reg8):
+        """Returns a function to load an 8-bit immediate into :py:data:reg8.
 
-        self.set_reg8(reg8, imm8)
+        :param reg8: single byte register
+        :rtype: integer → None """
+
+        def ld(imm8):
+            self.set_reg8(reg8, imm8)
+        return ld
 
     def ld_reg8toreg8(self, src_reg8, dest_reg8):
-        self.set_reg8(dest_reg8, self.get_reg8(src_reg8))
+        """Returns a function to load :py:data:src_reg8 into :py:data:dest_reg8.
 
-    def ld_imm16toreg16(self, imm16, reg16):
-        """0x01, 0x11, 0x21, 0x31"""
+        :param src_reg8: single byte source register
+        :param dest_reg8: single byte destination register
+        :rtype: None → None """
 
-        self.set_reg16(reg16, imm16)
+        def ld():
+            self.set_reg8(dest_reg8, self.get_reg8(src_reg8))
+        return ld
 
-    def ld_reg8toaddr16(self, reg8, addr16, inc=False, dec=False):
-        """0x02, 0x12, 0x22, 0x32
+    def ld_imm16toreg16(self, reg16):
+        """Returns a function to load a 16-bit immediate into :py:data:reg16.
 
-        If addr16 is a string such as 'BC', an address will be read from that
-        double-register. Otherwise, it will be taken literally."""
+        :param reg16: two-byte register
+        :rtype: integer → None """
 
-        if isinstance(addr16, str):
-            reg16 = addr16
-            addr16 = self.get_reg16(reg16)
+        def ld(imm16):
+            self.set_reg16(reg16, imm16)
+        return ld
 
-        self.mmu.set_addr(addr16, self.get_reg8(reg8))
+    def ld_reg8toreg16addr(self, reg8, reg16, inc=False, dec=False):
+        """Returns a function to load an 8-bit register value into an address
+        given by a 16-bit double register.
 
-        if inc:
-            self.set_reg16(reg16, self.get_reg16(reg16) + 1)
+        :param reg8: single byte source register
+        :param reg16: two-byte register containing destination address
+        :param inc: increment the value in :py:data:reg16 after storing
+                    :py:data:reg8 to memory
+        :param dec: decrement the value in :py:data:reg16 after storing
+                    :py:data:reg8 to memory
+        :rtype: None → None"""
+
+        if inc and dec:
+            raise ValueError('only one of inc and dec may be true')
+        elif inc:
+            def ld():
+                self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
+                self.set_reg16(reg16, self.get_reg16(reg16) + 1)
         elif dec:
-            self.set_reg16(reg16, self.get_reg16(reg16) - 1)
-
-    def ld_addr16toreg8(self, addr16, reg8):
-        """0x0a, 0x1a, 0x4e, 0x5e, 0x6e, 0x7e, 0x77, 0x46, 0x56, 0x66
-
-        If addr16 is a string such as 'BC', an address will be read from that
-        double-register. Otherwise, it will be taken literally."""
-
-        if isinstance(addr16, str):
-            reg16 = addr16
-            addr16 = self.get_reg16(reg16)
-
-            self.set_reg8(reg8, self.mmu.get_addr(addr16))
+            def ld():
+                self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
+                self.set_reg16(reg16, self.get_reg16(reg16) - 1)
         else:
-            self.set_reg8(reg8, self.mmu.get_addr(addr16))
+            def ld():
+                self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
+        return ld
 
-    def ld_sptoaddr16(self, addr16):
-        """0x08"""
+    def ld_reg8toimm16addr(self, reg8):
+        """Returns a function to load an 8-bit register value into an address
+        given by a 16-bit immediate.
 
-        if isinstance(addr16, str):
-            reg16 = addr16
-            addr16 = self.get_reg16(reg16)
+        :param reg8: single byte source register
+        :rtype: integer → None"""
 
-        self.mmu.set_addr(addr16, self.get_sp() >> 8)
-        self.mmu.set_addr(addr16 + 1, self.get_sp() & 0xff)
+        def ld(imm16):
+            self.mmu.set_addr(imm16, self.get_reg8(reg8))
+        return ld
+
+    def ld_reg16addrtoreg8(self, reg16, reg8, inc=False, dec=False):
+        """Returns a function to load the value at an address given by a 16-bit
+        double register into an 8-bit register.
+
+        :param reg16: 16-bit double register containing the source address
+        :param reg8: 8-bit destination register
+        :param inc: increment the value in reg16 after the ld operation
+        :param dec: decrement the value in reg16 after the ld operation
+        :rtype: None → None"""
+        if inc and dec:
+            raise ValueError('only one of inc and dec may be true')
+        elif inc:
+            def ld():
+                u16 = self.get_reg16(reg16)
+                self.set_reg8(reg8, self.mmu.get_addr(u16))
+                self.set_reg16(reg16, u16 + 1)
+        elif dec:
+            def ld():
+                u16 = self.get_reg16(reg16)
+                self.set_reg8(reg8, self.mmu.get_addr(u16))
+                self.set_reg16(reg16, u16 - 1)
+        else:
+            def ld():
+                u16 = self.get_reg16(reg16)
+                self.set_reg8(reg8, self.mmu.get_addr(u16))
+        return ld
+
+    def ld_imm16addrtoreg8(self, reg8):
+        """Returns a function to load the value at an address given by a 16-bit
+        immediate into an 8-bit register.
+
+        :param reg8: the single-byte destination register
+        :rtype: integer → None"""
+
+        def ld(imm16):
+            self.set_reg8(reg8, self.mmu.get_addr(imm16))
+        return ld
+
+    def ld_sptoimm16addr(self, imm16):
+        """Loads the most significant byte of the stack pointer into the address
+        given by :py:data:imm16 and the least significant byte of the SP into
+        :py:data:imm16+1.
+
+        :param imm16: 16-bit address
+        :rtype: None"""
+
+        self.mmu.set_addr(imm16, self.get_sp() >> 8)
+        self.mmu.set_addr(imm16 + 1, self.get_sp() & 0xff)
+
+    def ld_sptoreg16addr(self, reg16):
+        """Returns a function that loads the stack pointer into the 16-bit
+        register :py:data:reg16.
+
+        :param reg16: the destination double register
+        :rtype: None → None"""
+
+        def ld():
+            addr = self.get_reg16(reg16)
+
+            self.mmu.set_addr(addr, self.get_sp() >> 8)
+            self.mmu.set_addr(addr + 1, self.get_sp() & 0xff)
+        return ld
 
     def ld_imm8toaddrHL(self, imm8):
         """0x36"""
@@ -228,254 +306,345 @@ class Z80(object):
         self.mmu.set_addr(addr16, imm8)
 
     def inc_reg8(self, reg8):
-        """0x04, 0x14, 0x24, 0x34 -- inc reg8
-        TODO: overflow, carry"""
+        """Returns a function that increments :py:data:reg8.
 
-        u8 = self.get_reg8(reg8)
-        
-        result = u8 + 1
-        self.set_reg8(reg8, result)
+        :param reg8: the 8-bit register to increment
+        :rtype: None → None"""
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        def inc():
+            u8 = self.get_reg8(reg8)
 
-        if u8 & 0x0f == 0xf:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            result = u8 + 1
+            self.set_reg8(reg8, result)
 
-        self.reset_sub_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            if u8 & 0x0f == 0xf:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.reset_sub_flag()
+        return inc
 
     def inc_reg16(self, reg16):
-        """0x03, 0x13, 0x23, 0x33 -- inc reg16"""
+        """Returns a function that increments :py:data:reg16.
 
-        u16 = self.get_reg16(reg16)
-        
-        result = u16 + 1
-        self.set_reg16(reg16, result)
+        :param reg16: the double register to increment
+        :rtype: None → None"""
 
-        if result & 0xffff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        def inc():
+            u16 = self.get_reg16(reg16)
 
-        if u16 & 0x00ff == 0xff:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            result = u16 + 1
+            self.set_reg16(reg16, result)
 
-        self.reset_sub_flag()
+            if result & 0xffff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            if u16 & 0x00ff == 0xff:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.reset_sub_flag()
+        return inc
 
     def dec_reg8(self, reg8):
-        """0x05, 0x15, 0x25, 0x35 -- dec reg8"""
+        """Returns a function that decrements :py:data:reg8.
 
-        # TODO: according to the Z80 manual, dec does not affect the carry flag,
-        # but it does affect the half-carry flag when a borrow from bit 4 occurs.
+        :param reg8: the 8-bit register to decrement
+        :rtype: None → None"""
 
-        u8 = self.get_reg8(reg8)
+        def dec():
+            u8 = self.get_reg8(reg8)
 
-        self.set_reg8(reg8, u8 + 0xff)
+            self.set_reg8(reg8, u8 + 0xff)
 
-        if u8 & 0x0f == 0:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            if u8 & 0x0f == 0:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
 
-        self.set_sub_flag()
+            self.set_sub_flag()
+        return dec
 
     def dec_reg16(self, reg16):
-        """0x0b, 0x1b, 0x2b, 0x3b -- dec reg16"""
+        """Returns a function that decrements :py:data:reg16.
 
-        u16 = self.get_reg16(reg16)
+        :param reg8: the double register to decrement
+        :rtype: None → None"""
 
-        self.set_reg16(reg16, u16 + 0xffff)
+        def dec():
+            u16 = self.get_reg16(reg16)
 
-        if u16 & 0x00ff == 0:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            self.set_reg16(reg16, u16 + 0xffff)
 
-        self.set_sub_flag()
+            if u16 & 0x00ff == 0:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.set_sub_flag()
+        return dec
 
     def inc_addrHL(self):
-        """0x34 -- inc (HL)"""
+        """Increments the value at the address in HL."""
 
         addr16 = self.get_reg16('hl')
         self.mmu.set_addr(addr16, self.mmu.get_addr(addr16) + 1)
 
     def dec_addrHL(self):
-        """0x35 -- dec (HL)"""
+        """Decrements the value at the address in HL."""
 
         addr16 = self.get_reg16('hl')
         self.mmu.set_addr(addr16, self.mmu.get_addr(addr16) - 1)
 
     def add_reg16toregHL(self, reg16):
-        """0x09, 0x19, 0x29, 0x39 -- add HL, reg16"""
+        """Returns a function that adds :py:data:reg16 to the double register
+        HL.
 
-        result = self.get_reg16('HL') + self.get_reg16(reg16)
-        self.set_reg16('HL', result)
+        :param reg16: source double register
+        :rtype: None → None"""
 
-        if result > 0xffff:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+        def add():
+            result = self.get_reg16('HL') + self.get_reg16(reg16)
+            self.set_reg16('HL', result)
+
+            if result > 0xffff:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+        return add
 
     def add_reg8toreg8(self, src_reg8, dest_reg8, carry=False):
-        """0x80-0x85, 0x87-0x8d, 0x8f -- add src_reg8, dest_reg8"""
+        """Returns a function that adds the given two 8-bit registers.
+        dest_reg8 = dest_reg8 + src_reg8
 
-        src_u8 = self.get_reg8(src_reg8)
-        dest_u8 = self.get_reg8(dest_reg8)
+        :param src_reg8: source single-byte register
+        :param dest_reg8: destination single-byte register
+        :param carry: src_reg8 + dest_reg8 + 1
+        :rtype: None → None"""
 
-        if carry:
-            result = src_u8 + dest_u8 + self.get_carry_flag()
-        else:
-            result = src_u8 + dest_u8
+        def add():
+            src_u8 = self.get_reg8(src_reg8)
+            dest_u8 = self.get_reg8(dest_reg8)
 
-        self.set_reg8(dest_reg8, result)
+            if carry:
+                result = src_u8 + dest_u8 + self.get_carry_flag()
+            else:
+                result = src_u8 + dest_u8
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            self.set_reg8(dest_reg8, result)
 
-        if (dest_u8 & 0x0f) + (src_u8 & 0x0f) > 0x0f:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_sub_flag()
+            if (dest_u8 & 0x0f) + (src_u8 & 0x0f) > 0x0f:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
 
-        if result > 0xff:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            self.reset_sub_flag()
 
-    def add_imm8toreg8(self, imm8, reg8, carry=False):
-        """0xc6, 0xce -- add reg8, imm8"""
+            if result > 0xff:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+        return add
 
-        u8 = self.get_reg8(reg8)
+    def add_imm8toreg8(self, reg8, carry=False):
+        """Returns a function that adds the given two 8-bit registers.
+        reg8 = reg8 + imm8
 
-        if carry:
-            result = u8 + imm8 + self.get_carry_flag()
-        else:
-            result = u8 + imm8
-        self.set_reg8(reg8, result)
+        :param reg8: destination single-byte register
+        :param carry: reg8 + imm8 + 1
+        :rtype: int → None"""
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        def add(imm8):
+            u8 = self.get_reg8(reg8)
 
-        if (u8 & 0x0f) + (imm8 & 0x0f) > 0x0f:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            if carry:
+                result = u8 + imm8 + self.get_carry_flag()
+            else:
+                result = u8 + imm8
+            self.set_reg8(reg8, result)
 
-        self.reset_sub_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        if result > 0xff:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if (u8 & 0x0f) + (imm8 & 0x0f) > 0x0f:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.reset_sub_flag()
+
+            if result > 0xff:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+        return add
 
     def sub_reg8fromreg8(self, src_reg8, dest_reg8, carry=False):
-        """0x90-0x95, 0x97-0x9d, 0x9f -- sub reg8
-        dest_reg8 = dest_reg8 - src_reg8"""
-        
-        src_u8 = self.get_reg8(src_reg8)
-        dest_u8 = self.get_reg8(dest_reg8)
+        """Returns a function that subtracts src_reg8 from dest_reg8.
 
-        if carry:
-            # TODO
-            raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
-        else:
-            result = dest_u8 + (((src_u8 ^ 0xff) + 1) & 0xff)
+        :param src_reg8: The source single-byte register
+        :param dest_reg8: The destination single-byte register
+        :rtype: None → None"""
 
-        self.set_reg8(dest_reg8, result)
+        def sub():
+            src_u8 = self.get_reg8(src_reg8)
+            dest_u8 = self.get_reg8(dest_reg8)
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if carry:
+                # TODO (also document it)
+                raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
+            else:
+                result = dest_u8 + (((src_u8 ^ 0xff) + 1) & 0xff)
 
-        if (dest_u8 & 0x0f) + (((src_u8 ^ 0xff) + 1) & 0x0f) > 0x0f:
-            self.reset_halfcarry_flag()
-        else:
-            self.set_halfcarry_flag()
+            self.set_reg8(dest_reg8, result)
 
-        self.set_sub_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        if result > 0xff:
-            self.reset_carry_flag()
-        else:
-            self.set_carry_flag()
+            if (dest_u8 & 0x0f) + (((src_u8 ^ 0xff) + 1) & 0x0f) > 0x0f:
+                self.reset_halfcarry_flag()
+            else:
+                self.set_halfcarry_flag()
 
-    def sub_imm8fromreg8(self, imm8, reg8, carry=False):
-        """0xd6, 0xde -- sub imm8"""
+            self.set_sub_flag()
 
-        u8 = self.get_reg8(reg8)
+            if result > 0xff:
+                self.reset_carry_flag()
+            else:
+                self.set_carry_flag()
+        return sub
 
-        if carry:
-            # TODO
-            raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
-        else:
-            result = u8 + (((imm8 ^ 0xff) + 1) & 0xff)
-        
-        self.set_reg8(reg8, result)
+    def sub_imm8fromreg8(self, reg8, carry=False):
+        """Returns a function that subtracts an 8-bit immediate value from the
+        given :py:data:reg8.
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        :param reg8: The destination single register.
+        :rtype: int → None"""
 
-        # TODO: set halfcarry flag if a borrow from bit 4 occured
-        # this will need updated when carry is completed too
-        if ((u8 & 0x0f) + ((imm8 ^ 0xff) & 0x0f) + 1) > 0x0f:
-            self.reset_halfcarry_flag()
-        else:
-            self.set_halfcarry_flag()
+        def sub(imm8):
+            u8 = self.get_reg8(reg8)
 
-        self.set_sub_flag()
+            if carry:
+                # TODO
+                raise NotImplementedError('sbc imm8 / sbc reg8 / sbc (HL)')
+            else:
+                result = u8 + (((imm8 ^ 0xff) + 1) & 0xff)
 
-        if result > 0xff:
-            self.reset_carry_flag()
-        else:
-            self.set_carry_flag()
+            self.set_reg8(reg8, result)
 
-    def sub_addr16fromreg8(self, addr16, reg8, carry=False):
-        """0x96, 0x9e -- sub/sbc (HL)"""
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        x = self.get_reg8(reg8)
-        if isinstance(addr16, str):
-            y = self.mmu.get_addr(self.get_reg16(addr16))
-        else:
-            y = self.mmu.get_addr(addr16)
+            # TODO: set halfcarry flag if a borrow from bit 4 occured
+            # this will need updated when carry is completed too
+            if ((u8 & 0x0f) + ((imm8 ^ 0xff) & 0x0f) + 1) > 0x0f:
+                self.reset_halfcarry_flag()
+            else:
+                self.set_halfcarry_flag()
 
-        if carry:
-            raise NotImplementedError('sbc (HL)')
-        else:
-            result = x + (((y ^ 0xff) + 1) & 0xff)
+            self.set_sub_flag()
 
-        self.set_reg8(reg8, result)
+            if result > 0xff:
+                self.reset_carry_flag()
+            else:
+                self.set_carry_flag()
+        return sub
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+    def sub_imm16addrfromreg8(self, reg8, carry=False):
+        """Returns a function that subtracts the value at the address given by
+        :py:data:reg16 from :py:data:reg8.
 
-        if ((x & 0x0f) + ((y ^ 0xff) & 0x0f) + 1) > 0x0f:
-            self.reset_halfcarry_flag()
-        else:
-            self.set_halfcarry_flag()
+        :param reg16: The double register containing the source address
+        :param reg8: The single destination register.
+        :rtype: None → None"""
 
-        self.set_sub_flag()
+        def sub(imm16):
+            x = self.get_reg8(reg8)
+            y = self.mmu.get_addr(imm16)
 
-        if result > 0xff:
-            self.reset_carry_flag()
-        else:
-            self.set_carry_flag()
+            if carry:
+                raise NotImplementedError('sbc (HL)')
+            else:
+                result = x + (((y ^ 0xff) + 1) & 0xff)
+
+            self.set_reg8(reg8, result)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            if ((x & 0x0f) + ((y ^ 0xff) & 0x0f) + 1) > 0x0f:
+                self.reset_halfcarry_flag()
+            else:
+                self.set_halfcarry_flag()
+
+            self.set_sub_flag()
+
+            if result > 0xff:
+                self.reset_carry_flag()
+            else:
+                self.set_carry_flag()
+        return sub
+
+    def sub_reg16addrfromreg8(self, reg16, reg8, carry=False):
+        """Returns a function that subtracts the value at the address given by
+        :py:data:reg16 from :py:data:reg8.
+
+        :param reg16: The double register containing the source address
+        :param reg8: The single destination register.
+        :rtype: None → None"""
+
+        def sub():
+            x = self.get_reg8(reg8)
+            y = self.mmu.get_addr(self.get_reg16(reg16))
+
+            if carry:
+                raise NotImplementedError('sbc (HL)')
+            else:
+                result = x + (((y ^ 0xff) + 1) & 0xff)
+
+            self.set_reg8(reg8, result)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            if ((x & 0x0f) + ((y ^ 0xff) & 0x0f) + 1) > 0x0f:
+                self.reset_halfcarry_flag()
+            else:
+                self.set_halfcarry_flag()
+
+            self.set_sub_flag()
+
+            if result > 0xff:
+                self.reset_carry_flag()
+            else:
+                self.set_carry_flag()
+        return sub
+
+
 
     def and_reg8(self, reg8):
         """0xa0–a7, except 0xa6 -- and reg8

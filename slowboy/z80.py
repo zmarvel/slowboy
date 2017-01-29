@@ -1234,6 +1234,8 @@ class Z80(object):
             def jr(imm8):
                 if self.get_carry_flag() == 0:
                     self.set_pc(self.get_pc() + imm8)
+        else:
+            raise ValueError('cond must be one of Z, NZ, C, NC')
         return jr
 
     def jr_imm8(self, imm8):
@@ -1269,6 +1271,8 @@ class Z80(object):
             def jr(imm16):
                 if self.get_carry_flag() == 0:
                     self.set_pc(imm16)
+        else:
+            raise ValueError('cond must be one of Z, NZ, C, NC')
         return jr
 
     def jp_imm16addr(self, imm16):
@@ -1285,78 +1289,135 @@ class Z80(object):
         return jp
 
     def ret(self, cond=None):
-        """0xc9 -- ret"""
+        """Returns a function that, based on cond, will get the return address
+        from the stack and return.
+
+        :param cond: one (or none) of Z, C, S, H
+        :rtype: None → None"""
 
         if cond == 'z':
-            if self.get_zero_flag() == 0:
-                return
+            def check_cond():
+                return self.get_zero_flag() == 1
         elif cond == 'c':
-            if self.get_carry_flag() == 0:
-                return
+            def check_cond():
+                return self.get_carry_flag() == 1
         elif cond == 's':
-            if self.get_sub_flag() == 0:
-                return
+            def check_cond():
+                return self.get_sub_flag() == 1
         elif cond == 'h':
-            if self.get_halfcarry_flag() == 0:
-                return
+            def check_cond():
+                return self.get_halfcarry_flag() == 1
+        elif cond is not None:
+            raise ValueError('cond must be one of Z, C, S, H')
 
-        sp = self.get_sp()
-        pc = self.mmu.get_addr(sp + 1) << 8 | self.mmu.get_addr(sp)
-        self.set_pc(pc)
-        self.set_sp(sp + 2)
+        if cond is None:
+            def retc():
+                sp = self.get_sp()
+                pc = self.mmu.get_addr(sp + 1) << 8 | self.mmu.get_addr(sp)
+                self.set_pc(pc)
+                self.set_sp(sp + 2)
+        else:
+            def retc():
+                if check_cond():
+                    sp = self.get_sp()
+                    pc = self.mmu.get_addr(sp + 1) << 8 | self.mmu.get_addr(sp)
+                    self.set_pc(pc)
+                    self.set_sp(sp + 2)
+
+        return retc
 
     def reti(self):
         """0xd9 -- reti"""
         raise NotImplementedError('reti')
 
-    def ret_cond(self, cond):
-        """0xc0, 0xc8, 0xc9, 0xd0, 0xd8, 0xd9 -- ret / reti / ret cond
-        cond may be one of Z, C, S, H."""
+    def call_imm16addr(self, cond=None):
+        """Returns a function that, based on :py:data:cond, pushes the current
+        address in the program counter and jumps to the 16-bit immediate
+        parameter of the function.
 
-        raise NotImplementedError('ret / reti')
-
-    def call_condtoaddr16(self, cond, addr16):
-        """0xc4, 0xd4, 0xcc, 0xdc -- call cond, addr16
-        cond may be one of Z, C, S, H."""
+        :param cond: one of Z, C, S, H
+        :rtype: int → None"""
 
         pc = self.get_pc()
         sp = self.get_sp()
 
-        cond = cond.lower()
+        if cond is not None:
+            cond = cond.lower()
+
         if cond == 'z':
-            if self.get_zero_flag() == 1:
-                self.mmu.set_addr(sp - 1, pc >> 8)
-                self.mmu.set_addr(sp - 2, pc & 0xff)
-                self.set_pc(addr16)
-                self.set_sp(sp - 2)
+            def check_cond():
+                return self.get_zero_flag() == 1
         elif cond == 'c':
-            if self.get_carry_flag() == 1:
-                self.mmu.set_addr(sp - 1, pc >> 8)
-                self.mmu.set_addr(sp - 2, pc & 0xff)
-                self.set_pc(addr16)
-                self.set_sp(sp - 2)
+            def check_cond():
+                return self.get_carry_flag() == 1
         elif cond == 's':
-            if self.get_sub_flag() == 1:
-                self.mmu.set_addr(sp - 1, pc >> 8)
-                self.mmu.set_addr(sp - 2, pc & 0xff)
-                self.set_pc(addr16)
-                self.set_sp(sp - 2)
+            def check_cond():
+                return self.get_sub_flag() == 1
         elif cond == 'h':
-            if self.get_halfcarry_flag() == 1:
+            def check_cond():
+                return self.get_halfcarry_flag() == 1
+        elif cond is not None:
+            raise ValueError('cond must be one of Z, C, S, H')
+
+        if cond is None:
+            def call(imm16):
                 self.mmu.set_addr(sp - 1, pc >> 8)
                 self.mmu.set_addr(sp - 2, pc & 0xff)
-                self.set_pc(addr16)
+                self.set_pc(imm16)
                 self.set_sp(sp - 2)
+        else:
+            def call(imm16):
+                if check_cond():
+                    self.mmu.set_addr(sp - 1, pc >> 8)
+                    self.mmu.set_addr(sp - 2, pc & 0xff)
+                    self.set_pc(imm16)
+                    self.set_sp(sp - 2)
+        return call
 
-    def call_addr16(self, addr16):
-        """0xcd -- call addr16"""
+    def call_reg16addr(self, reg16, cond=None):
+        """Returns a function that, based on :py:data:cond, pushes the current
+        address in the program counter and jumps to the address in
+        :py:data:reg16.
+
+        :param cond: one of Z, C, S, H
+        :param reg16: address to call
+        :rtype: int → None"""
 
         pc = self.get_pc()
         sp = self.get_sp()
-        self.mmu.set_addr(sp - 1, pc >> 8)
-        self.mmu.set_addr(sp - 2, pc & 0xff)
-        self.set_pc(addr16)
-        self.set_sp(sp - 2)
+
+        if cond is not None:
+            cond = cond.lower()
+
+        if cond == 'z':
+            def check_cond():
+                return self.get_zero_flag() == 1
+        elif cond == 'c':
+            def check_cond():
+                return self.get_carry_flag() == 1
+        elif cond == 's':
+            def check_cond():
+                return self.get_sub_flag() == 1
+        elif cond == 'h':
+            def check_cond():
+                return self.get_halfcarry_flag() == 1
+        elif cond is not None:
+            raise ValueError('cond must be one of Z, C, S, H')
+
+        if cond is None:
+            def call():
+                self.mmu.set_addr(sp - 1, pc >> 8)
+                self.mmu.set_addr(sp - 2, pc & 0xff)
+                self.set_pc(self.get_reg16(reg16))
+                self.set_sp(sp - 2)
+        else:
+            def call():
+                if check_cond():
+                    self.mmu.set_addr(sp - 1, pc >> 8)
+                    self.mmu.set_addr(sp - 2, pc & 0xff)
+                    self.set_pc(self.get_reg16(reg16))
+                    self.set_sp(sp - 2)
+        return call
 
     def rst(self):
         """0xc7, 0xd7, 0xe7, 0xf7, 0xcf, 0xdf, 0xef, 0xff -- rst xxH"""

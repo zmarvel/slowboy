@@ -866,7 +866,7 @@ class TestZ80(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
-        self.cpu.ret()
+        self.cpu.ret()()
 
         self.assertEqual(self.cpu.get_pc(), 0xc000)
         self.assertEqual(self.cpu.get_sp(), 0xd002)
@@ -877,13 +877,13 @@ class TestZ80(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
-        self.cpu.ret(cond='z')
+        self.cpu.ret(cond='z')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
 
         self.cpu.set_zero_flag()
-        self.cpu.ret(cond='z')
+        self.cpu.ret(cond='z')()
 
         self.assertEqual(self.cpu.get_pc(), 0xc000)
         self.assertEqual(self.cpu.get_sp(), 0xd002)
@@ -894,13 +894,13 @@ class TestZ80(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
-        self.cpu.ret(cond='c')
+        self.cpu.ret(cond='c')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
 
         self.cpu.set_carry_flag()
-        self.cpu.ret(cond='c')
+        self.cpu.ret(cond='c')()
 
         self.assertEqual(self.cpu.get_pc(), 0xc000)
         self.assertEqual(self.cpu.get_sp(), 0xd002)
@@ -911,13 +911,13 @@ class TestZ80(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
-        self.cpu.ret(cond='s')
+        self.cpu.ret(cond='s')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
 
         self.cpu.set_sub_flag()
-        self.cpu.ret(cond='s')
+        self.cpu.ret(cond='s')()
 
         self.assertEqual(self.cpu.get_pc(), 0xc000)
         self.assertEqual(self.cpu.get_sp(), 0xd002)
@@ -928,35 +928,36 @@ class TestZ80(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
-        self.cpu.ret(cond='h')
+        self.cpu.ret(cond='h')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
 
         self.cpu.set_halfcarry_flag()
-        self.cpu.ret(cond='h')
+        self.cpu.ret(cond='h')()
 
         self.assertEqual(self.cpu.get_pc(), 0xc000)
         self.assertEqual(self.cpu.get_sp(), 0xd002)
+
     def test_reti(self):
         raise NotImplementedError('test_reti')
 
-    def test_call_addr16(self):
+    def test_call_imm16addr(self):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
 
-        self.cpu.call_addr16(0x2000)
+        self.cpu.call_imm16addr()(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x2000)
         self.assertEqual(self.cpu.get_sp(), 0xcffe)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
 
-    def test_call_condtoaddr16(self):
+    def test_call_imm16addr_z(self):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
 
-        self.cpu.call_condtoaddr16('z', 0x2000)
+        self.cpu.call_imm16addr('z')(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
@@ -965,18 +966,18 @@ class TestZ80(unittest.TestCase):
 
         self.cpu.set_zero_flag()
 
-        self.cpu.call_condtoaddr16('z', 0x2000)
+        self.cpu.call_imm16addr('z')(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x2000)
         self.assertEqual(self.cpu.get_sp(), 0xcffe)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
 
-    def test_call_condtoaddr16_2(self):
+    def test_call_condtoimm16addr_c(self):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
 
-        self.cpu.call_condtoaddr16('c', 0x2000)
+        self.cpu.call_imm16addr('c')(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
@@ -985,18 +986,18 @@ class TestZ80(unittest.TestCase):
 
         self.cpu.set_carry_flag()
 
-        self.cpu.call_condtoaddr16('c', 0x2000)
+        self.cpu.call_imm16addr('c')(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x2000)
         self.assertEqual(self.cpu.get_sp(), 0xcffe)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
 
-    def test_call_condtoaddr16_3(self):
+    def test_call_condtoimm16addr_s(self):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
 
-        self.cpu.call_condtoaddr16('s', 0x2000)
+        self.cpu.call_imm16addr('s')(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
@@ -1005,18 +1006,18 @@ class TestZ80(unittest.TestCase):
 
         self.cpu.set_sub_flag()
 
-        self.cpu.call_condtoaddr16('s', 0x2000)
+        self.cpu.call_imm16addr('s')(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x2000)
         self.assertEqual(self.cpu.get_sp(), 0xcffe)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
 
-    def test_call_condtoaddr16_4(self):
+    def test_call_condtoimm16addr_h(self):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
 
-        self.cpu.call_condtoaddr16('h', 0x2000)
+        self.cpu.call_imm16addr('h')(0x2000)
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
         self.assertEqual(self.cpu.get_sp(), 0xd000)
@@ -1025,7 +1026,19 @@ class TestZ80(unittest.TestCase):
 
         self.cpu.set_halfcarry_flag()
 
-        self.cpu.call_condtoaddr16('h', 0x2000)
+        self.cpu.call_imm16addr('h')(0x2000)
+
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
+        self.assertEqual(self.cpu.get_sp(), 0xcffe)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp() + 1), 0x12)
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_sp()), 0x34)
+
+    def test_call_reg16addr(self):
+        self.cpu.set_pc(0x1234)
+        self.cpu.set_sp(0xd000)
+        self.cpu.set_reg16('hl', 0x2000)
+
+        self.cpu.call_reg16addr('hl')()
 
         self.assertEqual(self.cpu.get_pc(), 0x2000)
         self.assertEqual(self.cpu.get_sp(), 0xcffe)

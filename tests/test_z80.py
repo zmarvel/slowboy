@@ -448,7 +448,7 @@ class TestZ80(unittest.TestCase):
     def test_and_reg8(self):
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.set_reg8('b', 0x55)
-        self.cpu.and_reg8('b')
+        self.cpu.and_reg8('b')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
         self.assertEqual(self.cpu.get_zero_flag(), 1)
@@ -459,7 +459,7 @@ class TestZ80(unittest.TestCase):
     def test_and_reg8_2(self):
         self.cpu.set_reg8('a', 0xff)
         self.cpu.set_reg8('l', 0x55)
-        self.cpu.and_reg8('l')
+        self.cpu.and_reg8('l')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x55)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
@@ -469,7 +469,7 @@ class TestZ80(unittest.TestCase):
 
     def test_and_imm8(self):
         self.cpu.set_reg8('a', 0xaa)
-        self.cpu.and_imm8(0x55)
+        self.cpu.and_imm8()(0x55)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
         self.assertEqual(self.cpu.get_zero_flag(), 1)
@@ -479,7 +479,7 @@ class TestZ80(unittest.TestCase):
 
     def test_and_imm8_2(self):
         self.cpu.set_reg8('a', 0xff)
-        self.cpu.and_imm8(0x55)
+        self.cpu.and_imm8()(0x55)
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x55)
         self.assertEqual(self.cpu.get_zero_flag(), 0)
@@ -487,12 +487,26 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
-    def test_and_addr16(self):
+    def test_and_imm16addr(self):
         addr16 = 0xc000
 
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.mmu.set_addr(addr16, 0x55)
-        self.cpu.and_addr16(addr16)
+        self.cpu.and_imm16addr()(addr16)
+
+        self.assertEqual(self.cpu.get_reg8('a'), 0x00)
+        self.assertEqual(self.cpu.get_zero_flag(), 1)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_and_reg16addr(self):
+        addr16 = 0xc000
+
+        self.cpu.set_reg8('a', 0xaa)
+        self.cpu.mmu.set_addr(addr16, 0x55)
+        self.cpu.set_reg16('bc', addr16)
+        self.cpu.and_reg16addr('bc')()
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
         self.assertEqual(self.cpu.get_zero_flag(), 1)

@@ -647,69 +647,108 @@ class Z80(object):
 
 
     def and_reg8(self, reg8):
-        """0xa0–a7, except 0xa6 -- and reg8
-        a = a & reg8"""
+        """Returns a function that performs a bitwise AND with the accumulator
+        register A.
 
-        result = self.get_reg8('a') & self.get_reg8(reg8)
-        self.set_reg8('a', result)
+        :param reg8: a single register
+        :rtype: None → None"""
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        def band():
+            result = self.get_reg8('a') & self.get_reg8(reg8)
+            self.set_reg8('a', result)
 
-        if (result >> 4) & 1 == 1:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_sub_flag()
-        self.reset_carry_flag()
+            if (result >> 4) & 1 == 1:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
 
-    def and_imm8(self, imm8):
-        """0xe6 -- and imm8
-        a = a & imm8"""
+            self.reset_sub_flag()
+            self.reset_carry_flag()
+        return band
 
-        result = self.get_reg8('a') & imm8
-        self.set_reg8('a', result)
+    def and_imm8(self):
+        """Returns a function that performs a bitwise AND with its 8-bit
+        immediate argument and the accumulator register A.
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        :rtype: int → None"""
 
-        if (result >> 4) & 1 == 1:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+        def band(imm8):
+            result = self.get_reg8('a') & imm8
+            self.set_reg8('a', result)
 
-        self.reset_sub_flag()
-        self.reset_carry_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-    def and_addr16(self, addr16):
-        """0xa6 -- and (HL)
-        a = a & (addr16)"""
+            if (result >> 4) & 1 == 1:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
 
-        if isinstance(addr16, str):
-            addr16 = self.get_reg16(addr16)
+            self.reset_sub_flag()
+            self.reset_carry_flag()
+        return band
 
-        x = self.get_reg8('a')
-        y = self.mmu.get_addr(addr16)
-        result = x & y
-        self.set_reg8('a', result)
+    def and_imm16addr(self):
+        """Returns a function that performs a bitwise AND with the 8-bit value
+        at the address given as an argument to the function and the accumulator
+        register A.
 
-        if result == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+        :rtype: int → None"""
 
-        if (result >> 4) & 0x1 == 1:
-            self.set_halfcarry_flag()
-        else:
-            self.reset_halfcarry_flag()
+        def band(imm16):
+            x = self.get_reg8('a')
+            y = self.mmu.get_addr(imm16)
+            result = x & y
+            self.set_reg8('a', result)
 
-        self.reset_sub_flag()
-        self.reset_carry_flag()
+            if result == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            if (result >> 4) & 0x1 == 1:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.reset_sub_flag()
+            self.reset_carry_flag()
+        return band
+
+    def and_reg16addr(self, reg16):
+        """Returns a function that performs a bitwise AND with the 8-bit value
+        at the address in the given double register and the accumulator
+        register.
+
+        :param reg16: double register to AND with A.
+        :rtype: None → None"""
+
+        def band():
+            x = self.get_reg8('a')
+            y = self.mmu.get_addr(self.get_reg16(reg16))
+            result = x & y
+            self.set_reg8('a', result)
+
+            if result == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            if (result >> 4) & 0x1 == 1:
+                self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
+
+            self.reset_sub_flag()
+            self.reset_carry_flag()
+        return band
 
     def or_reg8(self, reg8):
         """0xb0–b7, except 0xb6 -- or reg8

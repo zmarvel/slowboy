@@ -1,5 +1,6 @@
 
 import enum
+import logging
 
 from slowboy.util import uint8toBCD
 from slowboy.mmu import MMU
@@ -12,9 +13,8 @@ class State(enum.Enum):
 class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
 
-    def __init__(self):
+    def __init__(self, mmu=None):
         self.clk = 0
-        self.m = 0
         self.registers = {
             'a': 0,
             'f': 0,
@@ -26,9 +26,17 @@ class Z80(object):
             'l': 0
         }
         self.sp = 0
-        self.pc = 0
+        self.pc = 0x100
         self.state = State.STOP
-        self.mmu = MMU()
+        if mmu:
+            self.mmu = mmu
+        else:
+            self.mmu = MMU()
+
+        self._init_opcode_map()
+
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.WARNING)
 
     def _init_opcode_map(self):
         self.opcode_map = {

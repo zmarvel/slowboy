@@ -13,7 +13,7 @@ class State(enum.Enum):
 class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
 
-    def __init__(self, mmu=None):
+    def __init__(self, mmu=None, log_level=logging.WARNING):
         self.clk = 0
         self.registers = {
             'a': 0,
@@ -33,10 +33,10 @@ class Z80(object):
         else:
             self.mmu = MMU()
 
-        self._init_opcode_map()
-
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.WARNING)
+        self.logger.setLevel(log_level)
+
+        self._init_opcode_map()
 
     def _init_opcode_map(self):
         self.opcode_map = {
@@ -403,9 +403,8 @@ class Z80(object):
     def go(self):
         self.state = State.RUN
         while self.state == State.RUN:
-            print(self)
+            self.logger.debug(self)
             opcode = self.fetch()
-            print(hex(opcode))
 
             # decode
             op = self.opcode_map[opcode]
@@ -435,7 +434,9 @@ class Z80(object):
         :rtype: integer → None """
 
         def ld():
-            self.set_reg8(reg8, self.fetch())
+            imm8 = self.fetch()
+            self.logger.debug('ld {}, {}'.format(reg8, imm8))
+            self.set_reg8(reg8, imm8)
         return ld
 
     def ld_reg8toreg8(self, src_reg8, dest_reg8):
@@ -446,6 +447,7 @@ class Z80(object):
         :rtype: None → None """
 
         def ld():
+            self.logger.debug('ld {}, {}'.format(dest_reg8, src_reg8))
             self.set_reg8(dest_reg8, self.get_reg8(src_reg8))
         return ld
 

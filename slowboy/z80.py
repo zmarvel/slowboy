@@ -340,13 +340,15 @@ class Z80(object):
     def get_carry_flag(self):
         return (self.registers['f'] >> 4) & 1
 
-    def go(self):
+    def fetch(self):
+        opcode = self.mmu.get_addr(self.get_pc())
+        self.inc_pc()
+        return opcode
 
+    def go(self):
         self.state = State.RUN
         while self.state == State.RUN:
-            # fetch
-            opcode = self.mmu.get_addr(self.get_pc())
-            self.inc_pc()
+            opcode = self.fetch()
 
             # decode
             op, args = self.decode(opcode)
@@ -371,21 +373,18 @@ class Z80(object):
 
     def nop(self):
         """0x00"""
-        # TODO
 
         pass
 
     def stop(self):
         """0x10"""
-        # TODO
 
-        pass
+        self.state = State.STOP
 
     def halt(self):
         """0x76"""
-        # TODO
 
-        pass
+        self.state = State.HALT
 
     def ld_imm8toreg8(self, reg8):
         """Returns a function to load an 8-bit immediate into :py:data:reg8.
@@ -393,8 +392,8 @@ class Z80(object):
         :param reg8: single byte register
         :rtype: integer → None """
 
-        def ld(imm8):
-            self.set_reg8(reg8, imm8)
+        def ld():
+            self.set_reg8(reg8, self.fetch())
         return ld
 
     def ld_reg8toreg8(self, src_reg8, dest_reg8):
@@ -414,7 +413,9 @@ class Z80(object):
         :param reg16: two-byte register
         :rtype: integer → None """
 
-        def ld(imm16):
+        def ld():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             self.set_reg16(reg16, imm16)
         return ld
 
@@ -452,7 +453,9 @@ class Z80(object):
         :param reg8: single byte source register
         :rtype: integer → None"""
 
-        def ld(imm16):
+        def ld():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             self.mmu.set_addr(imm16, self.get_reg8(reg8))
         return ld
 
@@ -490,11 +493,13 @@ class Z80(object):
         :param reg8: the single-byte destination register
         :rtype: integer → None"""
 
-        def ld(imm16):
+        def ld():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             self.set_reg8(reg8, self.mmu.get_addr(imm16))
         return ld
 
-    def ld_sptoimm16addr(self, imm16):
+    def ld_sptoimm16addr(self):
         """Loads the most significant byte of the stack pointer into the address
         given by :py:data:imm16 and the least significant byte of the SP into
         :py:data:imm16+1.
@@ -502,6 +507,8 @@ class Z80(object):
         :param imm16: 16-bit address
         :rtype: None"""
 
+        imm16 = self.fetch() << 8
+        imm16 |= self.fetch()
         self.mmu.set_addr(imm16, self.get_sp() >> 8)
         self.mmu.set_addr(imm16 + 1, self.get_sp() & 0xff)
 
@@ -519,9 +526,10 @@ class Z80(object):
             self.mmu.set_addr(addr + 1, self.get_sp() & 0xff)
         return ld
 
-    def ld_imm8toaddrHL(self, imm8):
+    def ld_imm8toaddrHL(self):
         """0x36"""
 
+        imm8 = self.fetch()
         addr16 = self.get_reg16('hl')
         self.mmu.set_addr(addr16, imm8)
 
@@ -688,7 +696,8 @@ class Z80(object):
         :param carry: reg8 + imm8 + 1
         :rtype: int → None"""
 
-        def add(imm8):
+        def add():
+            imm8 = self.fetch()
             u8 = self.get_reg8(reg8)
 
             if carry:
@@ -759,7 +768,8 @@ class Z80(object):
         :param reg8: The destination single register.
         :rtype: int → None"""
 
-        def sub(imm8):
+        def sub():
+            imm8 = self.fetch()
             u8 = self.get_reg8(reg8)
 
             if carry:
@@ -798,7 +808,9 @@ class Z80(object):
         :param reg8: The single destination register.
         :rtype: None → None"""
 
-        def sub(imm16):
+        def sub():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             x = self.get_reg8(reg8)
             y = self.mmu.get_addr(imm16)
 
@@ -897,7 +909,8 @@ class Z80(object):
 
         :rtype: int → None"""
 
-        def band(imm8):
+        def band():
+            imm8 = self.fetch()
             result = self.get_reg8('a') & imm8
             self.set_reg8('a', result)
 
@@ -922,7 +935,9 @@ class Z80(object):
 
         :rtype: int → None"""
 
-        def band(imm16):
+        def band():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             x = self.get_reg8('a')
             y = self.mmu.get_addr(imm16)
             result = x & y
@@ -995,7 +1010,8 @@ class Z80(object):
 
         :rtype: int → None"""
 
-        def bor(imm8):
+        def bor():
+            imm8 = self.fetch()
             result = self.get_reg8('a') | imm8
             self.set_reg8('a', result)
 
@@ -1014,7 +1030,9 @@ class Z80(object):
 
         :rtype: int → None"""
 
-        def bor(imm16):
+        def bor():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             result = self.get_reg8('a') | self.mmu.get_addr(imm16)
             self.set_reg8('a', result)
 
@@ -1070,7 +1088,8 @@ class Z80(object):
 
         :rtype: int → None"""
 
-        def bxor(imm8):
+        def bxor():
+            imm8 = self.fetch()
             result = self.get_reg8('a') ^ imm8
             self.set_reg8('a', result)
 
@@ -1087,7 +1106,9 @@ class Z80(object):
 
         :rtype: int → None"""
 
-        def bxor(imm16):
+        def bxor():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             result = self.get_reg8('a') ^ self.mmu.get_addr(imm16)
             self.set_reg8('a', result)
 
@@ -1156,7 +1177,9 @@ class Z80(object):
         :param reg8: single register
         :rtype: int → None"""
 
-        def cp(imm16):
+        def cp():
+            imm16 = self.fetch() << 8
+            imm16 |= self.fetch()
             result = self.get_reg8(reg8) - self.mmu.get_addr(imm16)
 
             if result & 0xff == 0:
@@ -1439,31 +1462,36 @@ class Z80(object):
 
         cond = cond.lower()
         if cond == 'z':
-            def jr(imm8):
+            def jr():
+                imm8 = self.fetch()
                 if self.get_zero_flag() == 1:
                     self.set_pc(self.get_pc() + imm8)
         elif cond == 'nz':
-            def jr(imm8):
+            def jr():
+                imm8 = self.fetch()
                 if self.get_zero_flag() == 0:
                     self.set_pc(self.get_pc() + imm8)
         elif cond == 'c':
-            def jr(imm8):
+            def jr():
+                imm8 = self.fetch()
                 if self.get_carry_flag() == 1:
                     self.set_pc(self.get_pc() + imm8)
         elif cond == 'nc':
-            def jr(imm8):
+            def jr():
+                imm8 = self.fetch()
                 if self.get_carry_flag() == 0:
                     self.set_pc(self.get_pc() + imm8)
         else:
             raise ValueError('cond must be one of Z, NZ, C, NC')
         return jr
 
-    def jr_imm8(self, imm8):
+    def jr_imm8(self):
         """Performs an unconditional jump by :py:data:imm8.
         
         :param imm8: signed 8-bit immediate
         :rtype: int → None"""
 
+        imm8 = self.fetch()
         off = (imm8 ^ 0x80) - 0x80
         self.set_pc(self.get_pc() + off)
 
@@ -1495,9 +1523,11 @@ class Z80(object):
             raise ValueError('cond must be one of Z, NZ, C, NC')
         return jr
 
-    def jp_imm16addr(self, imm16):
+    def jp_imm16addr(self):
         """Performs an uncoditional jump to the address :py:data:imm16"""
 
+        imm16 = self.fetch() << 8
+        imm16 |= self.fetch()
         self.set_pc(imm16)
 
     def jp_reg16addr(self, reg16):
@@ -1558,9 +1588,6 @@ class Z80(object):
         :param cond: one of Z, C, S, H
         :rtype: int → None"""
 
-        pc = self.get_pc()
-        sp = self.get_sp()
-
         if cond is not None:
             cond = cond.lower()
 
@@ -1580,13 +1607,21 @@ class Z80(object):
             raise ValueError('cond must be one of Z, C, S, H')
 
         if cond is None:
-            def call(imm16):
+            def call():
+                imm16 = self.fetch() << 8
+                imm16 |= self.fetch()
+                pc = self.get_pc()
+                sp = self.get_sp()
                 self.mmu.set_addr(sp - 1, pc >> 8)
                 self.mmu.set_addr(sp - 2, pc & 0xff)
                 self.set_pc(imm16)
                 self.set_sp(sp - 2)
         else:
-            def call(imm16):
+            def call():
+                imm16 = self.fetch() << 8
+                imm16 |= self.fetch()
+                pc = self.get_pc()
+                sp = self.get_sp()
                 if check_cond():
                     self.mmu.set_addr(sp - 1, pc >> 8)
                     self.mmu.set_addr(sp - 2, pc & 0xff)

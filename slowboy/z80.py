@@ -120,7 +120,7 @@ class Z80(object):
                 0x26: self.ld_imm8toreg8('h'),
                 0x36: self.ld_imm8toreg16addr('hl'),
 
-                0x08: self.ld_SPtoimm16addr,
+                0x08: self.ld_sptoimm16addr,
 
                 0x0a: self.ld_reg16addrtoreg8('bc', 'a'),
                 0x1a: self.ld_reg16addrtoreg8('de', 'a'),
@@ -157,7 +157,7 @@ class Z80(object):
                 0x01: self.ld_imm16toreg16('bc'),
                 0x11: self.ld_imm16toreg16('de'),
                 0x21: self.ld_imm16toreg16('hl'),
-                0x31: self.ld_imm16toSP(),
+                0x31: self.ld_imm16toreg16('sp'),
 
                 # arithmetic and logic
 
@@ -168,7 +168,7 @@ class Z80(object):
                 0x04: self.inc_reg8('b'),
                 0x14: self.inc_reg8('d'),
                 0x24: self.inc_reg8('h'),
-                0x34: self.inc_reg16addr('hl'),
+                0x34: self.inc_addrHL,
                 0x0c: self.inc_reg8('c'),
                 0x1c: self.inc_reg8('e'),
                 0x2c: self.inc_reg8('l'),
@@ -176,7 +176,7 @@ class Z80(object):
                 0x05: self.dec_reg8('b'),
                 0x15: self.dec_reg8('d'),
                 0x25: self.dec_reg8('h'),
-                0x35: self.dec_reg16addr('hl'),
+                0x35: self.dec_addrHL,
                 0x0d: self.dec_reg8('c'),
                 0x1d: self.dec_reg8('e'),
                 0x2d: self.dec_reg8('l'),
@@ -192,7 +192,7 @@ class Z80(object):
                 0x83: self.add_reg8toreg8('e', 'a'),
                 0x84: self.add_reg8toreg8('h', 'a'),
                 0x85: self.add_reg8toreg8('l', 'a'),
-                0x86: self.add_reg16addrtoreg8('hl', 'a'),
+                #0x86: self.add_reg16addrtoreg8('hl', 'a'),
                 0x87: self.add_reg8toreg8('a', 'a', carry=True),
                 0x88: self.add_reg8toreg8('b', 'a', carry=True),
                 0x89: self.add_reg8toreg8('c', 'a', carry=True),
@@ -200,7 +200,7 @@ class Z80(object):
                 0x8b: self.add_reg8toreg8('e', 'a', carry=True),
                 0x8c: self.add_reg8toreg8('h', 'a', carry=True),
                 0x8d: self.add_reg8toreg8('l', 'a', carry=True),
-                0x8e: self.add_reg16addrtoreg8('hl', 'a', carry=True),
+                #0x8e: self.add_reg16addrtoreg8('hl', 'a', carry=True),
                 0x8f: self.add_reg8toreg8('a', 'a', carry=True),
                 0x90: self.sub_reg8fromreg8('b', 'a'),
                 0x91: self.sub_reg8fromreg8('c', 'a'),
@@ -208,7 +208,7 @@ class Z80(object):
                 0x93: self.sub_reg8fromreg8('e', 'a'),
                 0x94: self.sub_reg8fromreg8('h', 'a'),
                 0x95: self.sub_reg8fromreg8('l', 'a'),
-                0x96: self.sub_reg16addrfromreg8('hl', 'a'),
+                #0x96: self.sub_reg16addrfromreg8('hl', 'a'),
                 0x97: self.sub_reg8fromreg8('a', 'a', carry=True),
                 0x98: self.sub_reg8fromreg8('b', 'a', carry=True),
                 0x99: self.sub_reg8fromreg8('c', 'a', carry=True),
@@ -216,7 +216,7 @@ class Z80(object):
                 0x9b: self.sub_reg8fromreg8('e', 'a', carry=True),
                 0x9c: self.sub_reg8fromreg8('h', 'a', carry=True),
                 0x9d: self.sub_reg8fromreg8('l', 'a', carry=True),
-                0x9e: self.sub_reg16addrfromreg8('hl', 'a', carry=True),
+                #0x9e: self.sub_reg16addrfromreg8('hl', 'a', carry=True),
                 0x9f: self.sub_reg8fromreg8('a', 'a', carry=True),
                 0xa0: self.and_reg8('b'),
                 0xa1: self.and_reg8('c'),
@@ -256,7 +256,54 @@ class Z80(object):
                 0xf6: self.or_imm8,
 
 
+                0xc7: self.rst, # TODO
+                0xd7: self.rst, # TODO
+                0xe7: self.rst, # TODO
+                0xf7: self.rst, # TODO
+                0xcf: self.rst, # TODO
+                0xdf: self.rst, # TODO
+                0xef: self.rst, # TODO
+                0xff: self.rst, # TODO
+
+                0xc3: self.jp_imm16addr(),
+                0xc2: self.jp_imm16addr('nz'),
+                0xd2: self.jp_imm16addr('nc'),
+                0xca: self.jp_imm16addr('z'),
+                0xda: self.jp_imm16addr('c'),
+                0xe9: self.jp_reg16addr('hl'),
+
+                0x18: self.jr_imm8(),
+                0x20: self.jr_imm8('nz'),
+                0x30: self.jr_imm8('nc'),
+                0x28: self.jr_imm8('z'),
+                0x38: self.jr_imm8('c'),
+
+                0xcd: self.call_imm16addr(),
+                0xc4: self.call_imm16addr('nz'),
+                0xd4: self.call_imm16addr('nc'),
+                0xcc: self.call_imm16addr('z'),
+                0xdc: self.call_imm16addr('c'),
+
+                0xc9: self.ret(),
+                0xd9: self.reti,
+                0xc0: self.ret('nz'),
+                0xd0: self.ret('nc'),
+                0xc8: self.ret('z'),
+                0xd8: self.ret('c'),
                 }
+
+    def __repr__(self):
+        return ('Z80('
+                'state={state}, '
+                'pc={pc:#x}, sp={sp:#x}, '
+                'a={a:#x}, b={b:#x}, c={c:#x}, d={d:#x}, e={e:#x}, '
+                'h={h:#x}, l={l:#x})'
+                ).format(
+                        state=self.state, pc=self.pc, sp=self.sp,
+                        a=self.get_reg8('a'), b=self.get_reg8('b'),
+                        c=self.get_reg8('c'), d=self.get_reg8('d'),
+                        e=self.get_reg8('e'), h=self.get_reg8('h'),
+                        l=self.get_reg8('l'))
 
     def get_registers(self):
         return self.registers
@@ -356,28 +403,15 @@ class Z80(object):
     def go(self):
         self.state = State.RUN
         while self.state == State.RUN:
+            print(self)
             opcode = self.fetch()
+            print(hex(opcode))
 
             # decode
-            op, args = self.decode(opcode)
+            op = self.opcode_map[opcode]
 
             # execute
-            op(*args)
-
-    def decode(self, opcode):
-        """Call the appropriate method of `Z80` based on `opcode`.
-
-        TODO: Since this class is about 1000 lines now, I'm considering how to
-        split it up. A Decoder class might depend on other classes implementing
-        CPU instructions, each depending on and sharing a CPU state."""
-
-        if opcode & 0xc0 == 0x40:
-            print('{opcode:<#6x} ld rd, rs'.format(opcode=opcode))
-            rd = (opcode >> 3) & 0x07
-            rs = opcode & 0x07
-            return self.ld_reg8toreg8, (self.reglist[rs], self.reglist[rs])
-        else:
-            raise ValueError('Unrecognized opcode {:#x}'.format(opcode))
+            op()
 
     def nop(self):
         """0x00"""
@@ -421,10 +455,16 @@ class Z80(object):
         :param reg16: two-byte register
         :rtype: integer → None """
 
-        def ld():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
-            self.set_reg16(reg16, imm16)
+        if reg16 == 'sp':
+            def ld():
+                imm16 = self.fetch() << 8
+                imm16 |= self.fetch()
+                self.set_sp(imm16)
+        else:
+            def ld():
+                imm16 = self.fetch() << 8
+                imm16 |= self.fetch()
+                self.set_reg16(reg16, imm16)
         return ld
 
     def ld_reg8toreg16addr(self, reg8, reg16, inc=False, dec=False):
@@ -494,6 +534,15 @@ class Z80(object):
                 self.set_reg8(reg8, self.mmu.get_addr(u16))
         return ld
 
+    def ld_reg16toreg16(self, src_reg16, dest_reg16):
+        src_reg16 = src_reg16.lower()
+        if src_reg16 == 'sp':
+            self.set_reg16(dest_reg16, self.get_sp())
+        elif dest_reg16 == 'sp':
+            self.set_sp(self.get_reg16(src_reg16))
+        else:
+            self.set_reg16(dest_reg16, self.get_reg16(src_reg16))
+
     def ld_imm16addrtoreg8(self, reg8):
         """Returns a function to load the value at an address given by a 16-bit
         immediate into an 8-bit register.
@@ -533,6 +582,14 @@ class Z80(object):
             self.mmu.set_addr(addr, self.get_sp() >> 8)
             self.mmu.set_addr(addr + 1, self.get_sp() & 0xff)
         return ld
+
+    def ld_imm8toreg16addr(self, reg16):
+
+        def ld():
+            imm8 = self.fetch()
+            addr16 = self.get_reg16('hl')
+            self.mmu.set_addr(addr16, imm8)
+
 
     def ld_imm8toaddrHL(self):
         """0x36"""
@@ -629,6 +686,14 @@ class Z80(object):
             self.set_sub_flag()
         return dec
 
+    def inc_reg16addr(self, reg16):
+        """Increments the value at the address in `reg16`."""
+
+        def inc():
+            addr16 = self.get_reg16(reg16)
+            self.mmu.set_addr(addr16, self.mmu.get_addr(addr16) + 1)
+        return inc
+
     def inc_addrHL(self):
         """Increments the value at the address in HL."""
 
@@ -640,6 +705,7 @@ class Z80(object):
 
         addr16 = self.get_reg16('hl')
         self.mmu.set_addr(addr16, self.mmu.get_addr(addr16) - 1)
+
 
     def add_reg16toregHL(self, reg16):
         """Returns a function that adds :py:data:reg16 to the double register
@@ -1461,82 +1527,79 @@ class Z80(object):
 
         self.reset_carry_flag()
 
-    def jr_condtoimm8(self, cond):
+    def jr_imm8(self, cond=None):
         """Returns a function that takes a signed immediate and performs a
         relative jump by this immediate if :py:data:cond is true.
 
         :param cond: Z, NZ, C, NC
         :rtype: int → None"""
 
-        cond = cond.lower()
+        if cond:
+            cond = cond.lower()
         if cond == 'z':
-            def jr():
-                imm8 = self.fetch()
-                if self.get_zero_flag() == 1:
-                    self.set_pc(self.get_pc() + imm8)
+            def check_cond():
+                return self.get_zero_flag() == 1
         elif cond == 'nz':
-            def jr():
-                imm8 = self.fetch()
-                if self.get_zero_flag() == 0:
-                    self.set_pc(self.get_pc() + imm8)
+            def check_cond():
+                return self.get_zero_flag() == 0
         elif cond == 'c':
-            def jr():
-                imm8 = self.fetch()
-                if self.get_carry_flag() == 1:
-                    self.set_pc(self.get_pc() + imm8)
+            def check_cond():
+                return self.get_carry_flag() == 1
         elif cond == 'nc':
+            def check_cond():
+                return self.get_carry_flag() == 0
+        elif cond is not None:
+            raise ValueError('cond must be one of Z, NZ, C, NC')
+
+        if cond is None:
             def jr():
                 imm8 = self.fetch()
-                if self.get_carry_flag() == 0:
-                    self.set_pc(self.get_pc() + imm8)
+                self.set_pc(imm8)
         else:
-            raise ValueError('cond must be one of Z, NZ, C, NC')
+            def jr():
+                if check_cond():
+                    imm8 = self.fetch()
+                    self.set_pc(imm8)
+
         return jr
 
-    def jr_imm8(self):
-        """Performs an unconditional jump by :py:data:imm8.
-        
-        :param imm8: signed 8-bit immediate
-        :rtype: int → None"""
-
-        imm8 = self.fetch()
-        off = (imm8 ^ 0x80) - 0x80
-        self.set_pc(self.get_pc() + off)
-
-    def jp_condtoaddr16(self, cond):
+    def jp_imm16addr(self, cond=None):
         """Returns a function taking a 16-bit immediate that conditionally
         performs an absolute jump to that immediate if :py:data:cond is met.
 
         :param cond: Z, NZ, C, NC
         :rtype: int → None"""
 
-        cond = cond.lower()
+        if cond:
+            cond = cond.lower()
         if cond == 'z':
-            def jr(imm16):
-                if self.get_zero_flag() == 1:
-                    self.set_pc(imm16)
+            def check_cond():
+                return self.get_zero_flag() == 1
         elif cond == 'nz':
-            def jr(imm16):
-                if self.get_zero_flag() == 0:
-                    self.set_pc(imm16)
+            def check_cond():
+                return self.get_zero_flag() == 0
         elif cond == 'c':
-            def jr(imm16):
-                if self.get_carry_flag() == 1:
-                    self.set_pc(imm16)
+            def check_cond():
+                return self.get_carry_flag() == 1
         elif cond == 'nc':
-            def jr(imm16):
-                if self.get_carry_flag() == 0:
-                    self.set_pc(imm16)
-        else:
+            def check_cond():
+                return self.get_carry_flag() == 0
+        elif cond is not None:
             raise ValueError('cond must be one of Z, NZ, C, NC')
-        return jr
 
-    def jp_imm16addr(self):
-        """Performs an uncoditional jump to the address :py:data:imm16"""
+        if cond is None:
+            def jp():
+                imm16 = self.fetch() << 8
+                imm16 |= self.fetch()
+                self.set_pc(imm16)
+        else:
+            def jp():
+                if check_cond():
+                    imm16 = self.fetch() << 8
+                    imm16 |= self.fetch()
+                    self.set_pc(imm16)
 
-        imm16 = self.fetch() << 8
-        imm16 |= self.fetch()
-        self.set_pc(imm16)
+        return jp
 
     def jp_reg16addr(self, reg16):
         """Returns a function that performs an uncoditional jump to the address
@@ -1556,17 +1619,17 @@ class Z80(object):
         if cond == 'z':
             def check_cond():
                 return self.get_zero_flag() == 1
+        elif cond == 'nz':
+            def check_cond():
+                return self.get_zero_flag() == 0
         elif cond == 'c':
             def check_cond():
                 return self.get_carry_flag() == 1
-        elif cond == 's':
+        elif cond == 'nc':
             def check_cond():
-                return self.get_sub_flag() == 1
-        elif cond == 'h':
-            def check_cond():
-                return self.get_halfcarry_flag() == 1
+                return self.get_carry_flag() == 0
         elif cond is not None:
-            raise ValueError('cond must be one of Z, C, S, H')
+            raise ValueError('cond must be one of Z, NZ, C, NC')
 
         if cond is None:
             def retc():
@@ -1602,17 +1665,17 @@ class Z80(object):
         if cond == 'z':
             def check_cond():
                 return self.get_zero_flag() == 1
+        elif cond == 'nz':
+            def check_cond():
+                return self.get_zero_flag() == 0
         elif cond == 'c':
             def check_cond():
                 return self.get_carry_flag() == 1
-        elif cond == 's':
+        elif cond == 'nc':
             def check_cond():
-                return self.get_sub_flag() == 1
-        elif cond == 'h':
-            def check_cond():
-                return self.get_halfcarry_flag() == 1
+                return self.get_carry_flag() == 0
         elif cond is not None:
-            raise ValueError('cond must be one of Z, C, S, H')
+            raise ValueError('cond must be one of Z, NZ, C, NC')
 
         if cond is None:
             def call():

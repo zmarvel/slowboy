@@ -70,3 +70,7 @@ target/
 
 # games 
 *.gb
+
+# ctags
+.ctags
+tags

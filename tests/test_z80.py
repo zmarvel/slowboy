@@ -116,6 +116,11 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('H'), regH)
         self.assertEqual(self.cpu.get_reg8('L'), regL)
 
+class TestZ80LoadStore(unittest.TestCase):
+    def setUp(self):
+        self.cpu = slowboy.z80.Z80()
+        self.cpu.set_pc(0)
+
     def test_ld_imm8toreg8(self):
         self.cpu.mmu.rom = bytes([0, 1, 2, 3, 4, 5, 6])
         self.cpu.ld_imm8toreg8('B')()
@@ -265,6 +270,11 @@ class TestZ80(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg16('BC'), 0x0123)
         self.assertEqual(self.cpu.get_reg16('DE'), 0x4567)
         self.assertEqual(self.cpu.get_reg16('HL'), 0x89ab)
+
+class TestZ80ALU(unittest.TestCase):
+    def setUp(self):
+        self.cpu = slowboy.z80.Z80()
+        self.cpu.set_pc(0)
 
     def test_inc_reg8(self):
         self.cpu.set_reg8('b', 0x04)
@@ -803,6 +813,11 @@ class TestZ80(unittest.TestCase):
         self.cpu.ccf()
 
         self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+
+class TestZ80Control(unittest.TestCase):
+    def setUp(self):
+        self.cpu = slowboy.z80.Z80()
 
     def test_jr_imm8(self):
         self.cpu.set_pc(0x1000)

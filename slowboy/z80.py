@@ -2,7 +2,7 @@
 import enum
 import logging
 
-from slowboy.util import uint8toBCD
+from slowboy.util import uint8toBCD, add_s8, add_s16, twoscompl8, twoscompl16
 from slowboy.mmu import MMU
 
 class State(enum.Enum):
@@ -1559,12 +1559,16 @@ class Z80(object):
         if cond is None:
             def jr():
                 imm8 = self.fetch()
-                self.set_pc(imm8)
+                if (imm8 >> 7) & 1: # negative
+                    imm8 = twoscompl16(twoscompl8(imm8))
+                self.set_pc(add_s16(self.get_pc(), imm8))
         else:
             def jr():
+                imm8 = self.fetch()
                 if check_cond():
-                    imm8 = self.fetch()
-                    self.set_pc(imm8)
+                    if (imm8 >> 7) & 1: # negative
+                        imm8 = twoscompl16(twoscompl8(imm8))
+                    self.set_pc(add_s16(self.get_pc(), imm8))
 
         return jr
 
@@ -1599,9 +1603,9 @@ class Z80(object):
                 self.set_pc(imm16)
         else:
             def jp():
+                imm16 = self.fetch() << 8
+                imm16 |= self.fetch()
                 if check_cond():
-                    imm16 = self.fetch() << 8
-                    imm16 |= self.fetch()
                     self.set_pc(imm16)
 
         return jp

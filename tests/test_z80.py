@@ -821,55 +821,60 @@ class TestZ80Control(unittest.TestCase):
 
     def test_jr_imm8(self):
         self.cpu.set_pc(0x1000)
-        self.cpu.mmu.rom = bytes(0x22 for _ in range(0x1001))
-        self.cpu.jr_imm8()
+        rom = [0 for _ in range(0x2000)]
+        rom[0x1000] = 0x20
+        self.cpu.mmu.rom = bytes(rom)
 
-        self.assertEqual(self.cpu.get_pc(), 0x1023)
+        self.cpu.jr_imm8()()
+
+        self.assertEqual(self.cpu.get_pc(), 0x1021)
 
     def test_jr_imm8_2(self):
         self.cpu.set_pc(0x1000)
         rom = [0 for _ in range(0x1001)]
         rom[0x1000] = 0xe0
         self.cpu.mmu.rom = bytes(rom)
-        self.cpu.jr_imm8()
+
+        self.cpu.jr_imm8()()
 
         self.assertEqual(self.cpu.get_pc(), 0x0fe1)
 
-    def test_jr_condtoimm8_nz(self):
+    def test_jr_imm8_nz(self):
         self.cpu.set_pc(0x1000)
         self.cpu.mmu.rom = bytes(0x20 for _ in range(0x1001))
         self.cpu.reset_zero_flag()
-        self.cpu.jr_condtoimm8('NZ')()
+        self.cpu.jr_imm8('NZ')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1021)
 
-    def test_jr_condtoimm8_z(self):
+    def test_jr_imm8_z(self):
         self.cpu.set_pc(0x1000)
         self.cpu.mmu.rom = bytes(0x20 for _ in range(0x1001))
         self.cpu.set_zero_flag()
-        self.cpu.jr_condtoimm8('Z')()
+        self.cpu.jr_imm8('Z')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1021)
 
-    def test_jr_condtoimm8_nc(self):
+    def test_jr_imm8_nc(self):
         self.cpu.set_pc(0x1000)
         self.cpu.mmu.rom = bytes(0x20 for _ in range(0x1001))
         self.cpu.reset_carry_flag()
-        self.cpu.jr_condtoimm8('NC')()
+        self.cpu.jr_imm8('NC')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1021)
 
-    def test_jr_condtoimm8_c(self):
+    def test_jr_imm8_c(self):
         self.cpu.set_pc(0x1000)
         self.cpu.mmu.rom = bytes(0x20 for _ in range(0x1001))
         self.cpu.set_carry_flag()
-        self.cpu.jr_condtoimm8('C')()
+        self.cpu.jr_imm8('C')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1021)
 
     def test_jp_imm16addr(self):
+        self.cpu.set_pc(0)
         self.cpu.mmu.rom = bytes([0xd0, 0x00])
-        self.cpu.jp_imm16addr()
+        self.cpu.jp_imm16addr()()
 
         self.assertEqual(self.cpu.get_pc(), 0xd000)
 
@@ -880,26 +885,39 @@ class TestZ80Control(unittest.TestCase):
 
         self.assertEqual(self.cpu.get_pc(), 0xd000)
 
-    def test_jp_condtoaddr16(self):
-        self.cpu.set_pc(0xc000)
-        self.cpu.reset_zero_flag()
-        self.cpu.jp_condtoaddr16('NZ')(0xd000)
+    def test_jp_imm16addr_cond(self):
+        # TODO provide consistent ROM for testing in setup
+        # TODO split into 4 tests
+        rom = [0 for _ in range(0x40ff)]
+        rom[0x1000] = 0x20
+        rom[0x1001] = 0x00
+        rom[0x2000] = 0x30
+        rom[0x2001] = 0x00
+        rom[0x3000] = 0x40
+        rom[0x3001] = 0x00
+        rom[0x4000] = 0x20
+        rom[0x4001] = 0x00
+        self.cpu.mmu.rom = bytes(rom)
 
-        self.assertEqual(self.cpu.get_pc(), 0xd000)
+        self.cpu.set_pc(0x1000)
+        self.cpu.reset_zero_flag()
+        self.cpu.jp_imm16addr('NZ')()
+
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
 
         self.cpu.set_zero_flag()
-        self.cpu.jp_condtoaddr16('Z')(0xe000)
+        self.cpu.jp_imm16addr('Z')()
 
-        self.assertEqual(self.cpu.get_pc(), 0xe000)
+        self.assertEqual(self.cpu.get_pc(), 0x3000)
 
         self.cpu.reset_carry_flag()
-        self.cpu.jp_condtoaddr16('NC')(0xf000)
+        self.cpu.jp_imm16addr('NC')()
 
-        self.assertEqual(self.cpu.get_pc(), 0xf000)
+        self.assertEqual(self.cpu.get_pc(), 0x4000)
 
         self.cpu.set_carry_flag()
-        self.cpu.jp_condtoaddr16('C')(0xd000)
-        self.assertEqual(self.cpu.get_pc(), 0xd000)
+        self.cpu.jp_imm16addr('C')()
+        self.assertEqual(self.cpu.get_pc(), 0x2000)
 
     def test_ret(self):
         self.cpu.set_pc(0x1234)
@@ -913,6 +931,7 @@ class TestZ80Control(unittest.TestCase):
         self.assertEqual(self.cpu.get_sp(), 0xd002)
 
     def test_ret_cond(self):
+        # TODO split into two tests
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
         self.cpu.mmu.set_addr(0xd000, 0x00)
@@ -930,6 +949,7 @@ class TestZ80Control(unittest.TestCase):
         self.assertEqual(self.cpu.get_sp(), 0xd002)
 
     def test_ret_cond_2(self):
+        # TODO split into two tests
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
         self.cpu.mmu.set_addr(0xd000, 0x00)

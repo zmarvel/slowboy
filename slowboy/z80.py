@@ -35,6 +35,9 @@ class Z80(object):
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
+        console_log_handler = logging.StreamHandler()
+        console_log_handler.setLevel(log_level)
+        self.logger.addHandler(console_log_handler)
 
         self._init_opcode_map()
 

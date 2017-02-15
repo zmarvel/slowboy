@@ -7,6 +7,19 @@ class TestZ80(unittest.TestCase):
     def setUp(self):
         self.cpu = slowboy.z80.Z80()
 
+    def test_init(self):
+        self.assertEqual(self.cpu.pc, 0x100)
+        self.assertEqual(self.cpu.sp, 0xfffe)
+        self.assertEqual(self.cpu.registers['a'], 0)
+        self.assertEqual(self.cpu.registers['b'], 0)
+        self.assertEqual(self.cpu.registers['c'], 0)
+        self.assertEqual(self.cpu.registers['d'], 0)
+        self.assertEqual(self.cpu.registers['e'], 0)
+        self.assertEqual(self.cpu.registers['h'], 0)
+        self.assertEqual(self.cpu.registers['l'], 0)
+        self.assertEqual(self.cpu.registers['f'], 0)
+        self.assertEqual(self.cpu.state, slowboy.z80.State.STOP)
+
     def test_set_reg8(self):
         self.cpu.set_reg8('B', 0)
         self.cpu.set_reg8('C', 1)

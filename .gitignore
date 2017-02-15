@@ -70,6 +70,7 @@ target/
 
 # games 
 *.gb
+*.hex
 
 # ctags
 .ctags

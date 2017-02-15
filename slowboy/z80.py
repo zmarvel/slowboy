@@ -26,7 +26,7 @@ class Z80(object):
             'h': 0,
             'l': 0
         }
-        self.sp = 0
+        self.sp = 0xfffe
         self.pc = 0x100
         self.state = State.STOP
         if mmu:
@@ -425,6 +425,7 @@ class Z80(object):
         while self.state == State.RUN:
             self.logger.debug(self)
             opcode = self.fetch()
+            print(self.opcode_map[opcode])
 
             # decode
             op = self.opcode_map[opcode]
@@ -555,12 +556,15 @@ class Z80(object):
 
     def ld_reg16toreg16(self, src_reg16, dest_reg16):
         src_reg16 = src_reg16.lower()
-        if src_reg16 == 'sp':
-            self.set_reg16(dest_reg16, self.get_sp())
-        elif dest_reg16 == 'sp':
-            self.set_sp(self.get_reg16(src_reg16))
-        else:
-            self.set_reg16(dest_reg16, self.get_reg16(src_reg16))
+        dest_reg16 = dest_reg16.lower()
+        def ld():
+            if src_reg16 == 'sp':
+                self.set_reg16(dest_reg16, self.get_sp())
+            elif dest_reg16 == 'sp':
+                self.set_sp(self.get_reg16(src_reg16))
+            else:
+                self.set_reg16(dest_reg16, self.get_reg16(src_reg16))
+        return ld
 
     def ld_imm16addrtoreg8(self, reg8):
         """Returns a function to load the value at an address given by a 16-bit

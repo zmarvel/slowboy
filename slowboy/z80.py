@@ -399,9 +399,20 @@ class Z80(object):
         return (self.registers['f'] >> 4) & 1
 
     def fetch(self):
-        opcode = self.mmu.get_addr(self.get_pc())
+        """Fetch a byte, incrementing the PC as needed."""
+
+        value = self.mmu.get_addr(self.get_pc())
         self.inc_pc()
-        return opcode
+        return value
+
+    def fetch2(self):
+        """Fetch 2 bytes, incrementing the PC as needed."""
+
+        value = self.mmu.get_addr(self.get_pc())
+        self.inc_pc()
+        value |= self.mmu.get_addr(self.get_pc()) << 8
+        self.inc_pc()
+        return value
 
     def go(self):
         self.state = State.RUN
@@ -462,13 +473,11 @@ class Z80(object):
 
         if reg16 == 'sp':
             def ld():
-                imm16 = self.fetch() << 8
-                imm16 |= self.fetch()
+                imm16 = self.fetch2()
                 self.set_sp(imm16)
         else:
             def ld():
-                imm16 = self.fetch() << 8
-                imm16 |= self.fetch()
+                imm16 = self.fetch2()
                 self.set_reg16(reg16, imm16)
         return ld
 
@@ -507,8 +516,7 @@ class Z80(object):
         :rtype: integer → None"""
 
         def ld():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
+            imm16 = self.fetch2()
             self.mmu.set_addr(imm16, self.get_reg8(reg8))
         return ld
 
@@ -556,8 +564,7 @@ class Z80(object):
         :rtype: integer → None"""
 
         def ld():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
+            imm16 = self.fetch2()
             self.set_reg8(reg8, self.mmu.get_addr(imm16))
         return ld
 
@@ -569,8 +576,7 @@ class Z80(object):
         :param imm16: 16-bit address
         :rtype: None"""
 
-        imm16 = self.fetch() << 8
-        imm16 |= self.fetch()
+        imm16 = self.fetch2()
         self.mmu.set_addr(imm16, self.get_sp() >> 8)
         self.mmu.set_addr(imm16 + 1, self.get_sp() & 0xff)
 
@@ -888,8 +894,7 @@ class Z80(object):
         :rtype: None → None"""
 
         def sub():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
+            imm16 = self.fetch2()
             x = self.get_reg8(reg8)
             y = self.mmu.get_addr(imm16)
 
@@ -1015,8 +1020,7 @@ class Z80(object):
         :rtype: int → None"""
 
         def band():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
+            imm16 = self.fetch2()
             x = self.get_reg8('a')
             y = self.mmu.get_addr(imm16)
             result = x & y
@@ -1110,8 +1114,7 @@ class Z80(object):
         :rtype: int → None"""
 
         def bor():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
+            imm16 = self.fetch2()
             result = self.get_reg8('a') | self.mmu.get_addr(imm16)
             self.set_reg8('a', result)
 
@@ -1186,8 +1189,7 @@ class Z80(object):
         :rtype: int → None"""
 
         def bxor():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
+            imm16 = self.fetch2()
             result = self.get_reg8('a') ^ self.mmu.get_addr(imm16)
             self.set_reg8('a', result)
 
@@ -1257,8 +1259,7 @@ class Z80(object):
         :rtype: int → None"""
 
         def cp():
-            imm16 = self.fetch() << 8
-            imm16 |= self.fetch()
+            imm16 = self.fetch2()
             result = self.get_reg8(reg8) - self.mmu.get_addr(imm16)
 
             if result & 0xff == 0:
@@ -1598,13 +1599,11 @@ class Z80(object):
 
         if cond is None:
             def jp():
-                imm16 = self.fetch() << 8
-                imm16 |= self.fetch()
+                imm16 = self.fetch2()
                 self.set_pc(imm16)
         else:
             def jp():
-                imm16 = self.fetch() << 8
-                imm16 |= self.fetch()
+                imm16 = self.fetch2()
                 if check_cond():
                     self.set_pc(imm16)
 
@@ -1688,8 +1687,7 @@ class Z80(object):
 
         if cond is None:
             def call():
-                imm16 = self.fetch() << 8
-                imm16 |= self.fetch()
+                imm16 = self.fetch2()
                 pc = self.get_pc()
                 sp = self.get_sp()
                 self.mmu.set_addr(sp - 1, pc >> 8)
@@ -1698,8 +1696,7 @@ class Z80(object):
                 self.set_sp(sp - 2)
         else:
             def call():
-                imm16 = self.fetch() << 8
-                imm16 |= self.fetch()
+                imm16 = self.fetch2()
                 pc = self.get_pc()
                 sp = self.get_sp()
                 if check_cond():

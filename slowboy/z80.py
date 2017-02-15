@@ -4,6 +4,7 @@ import logging
 
 from slowboy.util import uint8toBCD, add_s8, add_s16, twoscompl8, twoscompl16
 from slowboy.mmu import MMU
+from slowboy.interrupts import InterruptHandler
 
 class State(enum.Enum):
     RUN = 0
@@ -13,7 +14,7 @@ class State(enum.Enum):
 class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
 
-    def __init__(self, mmu=None, log_level=logging.WARNING):
+    def __init__(self, log_level=logging.WARNING, mmu=None, interrupt_handler=None):
         self.clk = 0
         self.registers = {
             'a': 0,
@@ -32,6 +33,11 @@ class Z80(object):
             self.mmu = mmu
         else:
             self.mmu = MMU()
+
+        if interrupt_handler:
+            self.interrupt_handler = interrupt_handler
+        else:
+            self.interrupt_handler = InterruptHandler()
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
@@ -1760,10 +1766,10 @@ class Z80(object):
         """0xf3 -- di
         Disable interrupts."""
 
-        raise NotImplementedError('di')
+        self.interrupt_handler.di()
 
     def ei(self):
         """0xfb -- ei
         Enable interrupts."""
 
-        raise NotImplementedError('ei')
+        self.interrupt_handler.ei()

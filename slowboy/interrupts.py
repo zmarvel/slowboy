@@ -2,7 +2,13 @@
 
 class InterruptHandler():
     def __init__(self):
-        pass
+        self.enabled = True
 
-    def has_interrupt() → bool:
+    def ei(self):
+        self.enabled = True
+
+    def di(self):
+        self.enabled = False
+
+    def has_interrupt(self) -> bool:
         return False

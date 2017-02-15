@@ -203,13 +203,13 @@ class TestZ80LoadStore(unittest.TestCase):
 
     def test_ld_reg8toimm16addr(self):
         self.cpu.set_reg8('a', 0xab)
-        self.cpu.mmu.rom = bytes([0xc0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xc0])
         self.cpu.ld_reg8toimm16addr('a')()
         self.assertEqual(self.cpu.mmu.get_addr(0xc000), 0xab)
 
     def test_ld_imm16addrtoreg8(self):
         self.cpu.mmu.set_addr(0xd000, 0xab)
-        self.cpu.mmu.rom = bytes([0xd0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xd0])
         self.cpu.ld_imm16addrtoreg8('c')()
         self.assertEqual(self.cpu.get_reg8('c'), 0xab)
 
@@ -229,7 +229,7 @@ class TestZ80LoadStore(unittest.TestCase):
 
     def test_ld_sptoimm16addr(self):
         self.cpu.set_sp(0x1234)
-        self.cpu.mmu.rom = bytes([0xd0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xd0])
         self.cpu.ld_sptoimm16addr()
         self.assertEqual(self.cpu.get_pc(), 2)
         self.assertEqual(self.cpu.mmu.get_addr(0xd000),
@@ -267,9 +267,9 @@ class TestZ80LoadStore(unittest.TestCase):
         self.cpu.ld_imm16toreg16('DE')()
         self.cpu.ld_imm16toreg16('HL')()
 
-        self.assertEqual(self.cpu.get_reg16('BC'), 0x0123)
-        self.assertEqual(self.cpu.get_reg16('DE'), 0x4567)
-        self.assertEqual(self.cpu.get_reg16('HL'), 0x89ab)
+        self.assertEqual(self.cpu.get_reg16('BC'), 0x2301)
+        self.assertEqual(self.cpu.get_reg16('DE'), 0x6745)
+        self.assertEqual(self.cpu.get_reg16('HL'), 0xab89)
 
 class TestZ80ALU(unittest.TestCase):
     def setUp(self):
@@ -433,7 +433,7 @@ class TestZ80ALU(unittest.TestCase):
         """Example from the Gameboy Programming Manual"""
 
         u8 = self.cpu.get_reg8('a')
-        self.cpu.mmu.rom = bytes([0xc0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xc0])
 
         self.cpu.set_reg8('a', 0x3e)
         self.cpu.mmu.set_addr(0xc000, 0x40)
@@ -507,7 +507,7 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
     def test_and_imm16addr(self):
-        self.cpu.mmu.rom = bytes([0xc0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xc0])
 
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.mmu.set_addr(0xc000, 0x55)
@@ -563,7 +563,7 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
 
     def test_or_imm16addr(self):
-        self.cpu.mmu.rom = bytes([0xc0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xc0])
 
         self.cpu.set_reg8('a', 0xaa)
         self.cpu.mmu.set_addr(0xc000, 0x55)
@@ -616,7 +616,7 @@ class TestZ80ALU(unittest.TestCase):
 
     def test_xor_imm16addr(self):
         self.cpu.set_reg8('a', 0xaa)
-        self.cpu.mmu.rom = bytes([0xc0, 00])
+        self.cpu.mmu.rom = bytes([0x00, 0xc0])
         self.cpu.mmu.set_addr(0xc000, 0xaa)
         self.cpu.xor_imm16addr()
 
@@ -685,7 +685,7 @@ class TestZ80ALU(unittest.TestCase):
         """Example from the Gameboy Programming Manual"""
 
         self.cpu.set_reg8('a', 0x3c)
-        self.cpu.mmu.rom = bytes([0xc0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xc0])
         self.cpu.mmu.set_addr(0xc000, 0x40)
         self.cpu.cp_reg8toimm16addr('a')()
 
@@ -873,7 +873,7 @@ class TestZ80Control(unittest.TestCase):
 
     def test_jp_imm16addr(self):
         self.cpu.set_pc(0)
-        self.cpu.mmu.rom = bytes([0xd0, 0x00])
+        self.cpu.mmu.rom = bytes([0x00, 0xd0])
         self.cpu.jp_imm16addr()()
 
         self.assertEqual(self.cpu.get_pc(), 0xd000)
@@ -889,14 +889,14 @@ class TestZ80Control(unittest.TestCase):
         # TODO provide consistent ROM for testing in setup
         # TODO split into 4 tests
         rom = [0 for _ in range(0x40ff)]
-        rom[0x1000] = 0x20
-        rom[0x1001] = 0x00
-        rom[0x2000] = 0x30
-        rom[0x2001] = 0x00
-        rom[0x3000] = 0x40
-        rom[0x3001] = 0x00
-        rom[0x4000] = 0x20
-        rom[0x4001] = 0x00
+        rom[0x1001] = 0x20
+        rom[0x1000] = 0x00
+        rom[0x2001] = 0x30
+        rom[0x2000] = 0x00
+        rom[0x3001] = 0x40
+        rom[0x3000] = 0x00
+        rom[0x4001] = 0x20
+        rom[0x4000] = 0x00
         self.cpu.mmu.rom = bytes(rom)
 
         self.cpu.set_pc(0x1000)
@@ -973,8 +973,8 @@ class TestZ80Control(unittest.TestCase):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
         rom = [0 for _ in range(0x2000)]
-        rom[0x1234] = 0x20
-        rom[0x1235] = 0x00
+        rom[0x1234] = 0x00
+        rom[0x1235] = 0x20
         self.cpu.mmu.rom = bytes(rom)
 
         self.cpu.call_imm16addr()()
@@ -988,10 +988,10 @@ class TestZ80Control(unittest.TestCase):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
         rom = [0 for _ in range(0x2000)]
-        rom[0x1234] = 0x20
-        rom[0x1235] = 0x00
-        rom[0x1236] = 0x20
-        rom[0x1237] = 0x00
+        rom[0x1234] = 0x00
+        rom[0x1235] = 0x20
+        rom[0x1236] = 0x00
+        rom[0x1237] = 0x20
         self.cpu.mmu.rom = bytes(rom)
 
         self.cpu.call_imm16addr('z')()
@@ -1014,10 +1014,10 @@ class TestZ80Control(unittest.TestCase):
         self.cpu.set_pc(0x1234)
         self.cpu.set_sp(0xd000)
         rom = [0 for _ in range(0x2000)]
-        rom[0x1234] = 0x20
-        rom[0x1235] = 0x00
-        rom[0x1236] = 0x20
-        rom[0x1237] = 0x00
+        rom[0x1234] = 0x00
+        rom[0x1235] = 0x20
+        rom[0x1236] = 0x00
+        rom[0x1237] = 0x20
         self.cpu.mmu.rom = bytes(rom)
 
         self.cpu.call_imm16addr('c')()

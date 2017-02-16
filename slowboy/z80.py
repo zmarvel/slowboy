@@ -678,12 +678,19 @@ class Z80(object):
         def dec():
             u8 = self.get_reg8(reg8)
 
-            self.set_reg8(reg8, u8 + 0xff)
+            result = u8 + 0xff
+
+            self.set_reg8(reg8, result)
 
             if u8 & 0x0f == 0:
                 self.set_halfcarry_flag()
             else:
                 self.reset_halfcarry_flag()
+
+            if (result & 0xff) == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
             self.set_sub_flag()
         return dec

@@ -481,10 +481,12 @@ class Z80(object):
         if reg16 == 'sp':
             def ld():
                 imm16 = self.fetch2()
+                self.logger.debug('ld {}, {}'.format(reg16, imm16))
                 self.set_sp(imm16)
         else:
             def ld():
                 imm16 = self.fetch2()
+                self.logger.debug('ld {}, {}'.format(reg16, imm16))
                 self.set_reg16(reg16, imm16)
         return ld
 
@@ -504,14 +506,17 @@ class Z80(object):
             raise ValueError('only one of inc and dec may be true')
         elif inc:
             def ld():
+                self.logger.debug('ld ({}), {}'.format(reg16, reg8))
                 self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
                 self.set_reg16(reg16, self.get_reg16(reg16) + 1)
         elif dec:
             def ld():
+                self.logger.debug('ld ({}), {}'.format(reg16, reg8))
                 self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
                 self.set_reg16(reg16, self.get_reg16(reg16) - 1)
         else:
             def ld():
+                self.logger.debug('ld ({}), {}'.format(reg16, reg8))
                 self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
         return ld
 
@@ -541,16 +546,19 @@ class Z80(object):
         elif inc:
             def ld():
                 u16 = self.get_reg16(reg16)
+                self.logger.debug('ld {}, ({})'.format(reg8, reg16))
                 self.set_reg8(reg8, self.mmu.get_addr(u16))
                 self.set_reg16(reg16, u16 + 1)
         elif dec:
             def ld():
                 u16 = self.get_reg16(reg16)
+                self.logger.debug('ld {}, ({})'.format(reg8, reg16))
                 self.set_reg8(reg8, self.mmu.get_addr(u16))
                 self.set_reg16(reg16, u16 - 1)
         else:
             def ld():
                 u16 = self.get_reg16(reg16)
+                self.logger.debug('ld {}, ({})'.format(reg8, reg16))
                 self.set_reg8(reg8, self.mmu.get_addr(u16))
         return ld
 
@@ -1577,12 +1585,14 @@ class Z80(object):
         if cond is None:
             def jr():
                 imm8 = self.fetch()
+                self.logger.debug('jr {:#x}'.format(imm8))
                 if (imm8 >> 7) & 1: # negative
                     imm8 = twoscompl16(twoscompl8(imm8))
                 self.set_pc(add_s16(self.get_pc(), imm8))
         else:
             def jr():
                 imm8 = self.fetch()
+                self.logger.debug('jr {}, {:#x}'.format(cond, imm8))
                 if check_cond():
                     if (imm8 >> 7) & 1: # negative
                         imm8 = twoscompl16(twoscompl8(imm8))

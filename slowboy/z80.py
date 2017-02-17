@@ -490,34 +490,49 @@ class Z80(object):
                 self.set_reg16(reg16, imm16)
         return ld
 
-    def ld_reg8toreg16addr(self, reg8, reg16, inc=False, dec=False):
+    def ld_reg8toreg16addr(self, reg8, reg16):
         """Returns a function to load an 8-bit register value into an address
         given by a 16-bit double register.
 
         :param reg8: single byte source register
         :param reg16: two-byte register containing destination address
-        :param inc: increment the value in :py:data:reg16 after storing
-                    :py:data:reg8 to memory
-        :param dec: decrement the value in :py:data:reg16 after storing
-                    :py:data:reg8 to memory
         :rtype: None → None"""
 
-        if inc and dec:
-            raise ValueError('only one of inc and dec may be true')
-        elif inc:
-            def ld():
-                self.logger.debug('ld ({}), {}'.format(reg16, reg8))
-                self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
-                self.set_reg16(reg16, self.get_reg16(reg16) + 1)
-        elif dec:
-            def ld():
-                self.logger.debug('ld ({}), {}'.format(reg16, reg8))
-                self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
-                self.set_reg16(reg16, self.get_reg16(reg16) - 1)
-        else:
-            def ld():
-                self.logger.debug('ld ({}), {}'.format(reg16, reg8))
-                self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
+        def ld():
+            self.logger.debug('ld ({}), {}'.format(reg16, reg8))
+            self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
+        return ld
+
+    def ld_reg8toreg16addr_inc(self, reg8, reg16):
+       """Returns a function to load an 8-bit register value into an address
+        given by a 16-bit double register, then increment the address in the
+        dregister.
+
+        :param reg8: single byte source register
+        :param reg16: two-byte register containing destination address
+        :rtype: None → None"""
+
+        def ld():
+            # TODO set flags
+            self.logger.debug('ld ({}), {}'.format(reg16, reg8))
+            self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
+            self.set_reg16(reg16, self.get_reg16(reg16) + 1)
+        return ld
+
+    def ld_reg8toreg16addr_dec(self, reg8, reg16):
+       """Returns a function to load an 8-bit register value into an address
+        given by a 16-bit double register, then decrement the address in the
+        dregister.
+
+        :param reg8: single byte source register
+        :param reg16: two-byte register containing destination address
+        :rtype: None → None"""
+
+        def ld():
+            # TODO set flags
+            self.logger.debug('ld ({}), {}'.format(reg16, reg8))
+            self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
+            self.set_reg16(reg16, self.get_reg16(reg16) - 1)
         return ld
 
     def ld_reg8toimm16addr(self, reg8):

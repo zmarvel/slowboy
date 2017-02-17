@@ -152,42 +152,38 @@ class TestZ80LoadStore(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('L'), 5)
         self.assertEqual(self.cpu.get_reg8('A'), 6)
 
+    def test_ld_imm8toreg8_invalid_register(self):
+        self.cpu.mmu.rom = bytes([0, 1, 2, 3, 4, 5, 6])
+        self.assertRaises(KeyError, self.cpu.ld_imm8toreg8('BC')())
+
     def test_ld_reg8toreg8(self):
-        self.cpu.set_reg8('B', 0)
-        self.cpu.set_reg8('C', 1)
-        self.cpu.set_reg8('D', 2)
-        self.cpu.set_reg8('E', 3)
-        self.cpu.set_reg8('H', 4)
-        self.cpu.set_reg8('L', 5)
-        self.cpu.set_reg8('A', 6)
+        self.cpu.set_reg8('B', 0x00)
+        self.cpu.set_reg8('C', 0x11)
+        self.cpu.set_reg8('D', 0x22)
+        self.cpu.set_reg8('E', 0x33)
+        self.cpu.set_reg8('H', 0x44)
+        self.cpu.set_reg8('L', 0x55)
+        self.cpu.set_reg8('A', 0x66)
 
         self.cpu.ld_reg8toreg8('B', 'B')()
-        self.assertEqual(self.cpu.get_reg8('B'), 0)
+        self.assertEqual(self.cpu.get_reg8('B'), 0x00)
         self.cpu.ld_reg8toreg8('C', 'B')()
-        self.assertEqual(self.cpu.get_reg8('B'), 1)
+        self.assertEqual(self.cpu.get_reg8('B'), 0x11)
         self.cpu.ld_reg8toreg8('D', 'B')()
-        self.assertEqual(self.cpu.get_reg8('B'), 2)
+        self.assertEqual(self.cpu.get_reg8('B'), 0x22)
         self.cpu.ld_reg8toreg8('E', 'B')()
-        self.assertEqual(self.cpu.get_reg8('B'), 3)
+        self.assertEqual(self.cpu.get_reg8('B'), 0x33)
         self.cpu.ld_reg8toreg8('H', 'B')()
-        self.assertEqual(self.cpu.get_reg8('B'), 4)
+        self.assertEqual(self.cpu.get_reg8('B'), 0x44)
         self.cpu.ld_reg8toreg8('L', 'B')()
-        self.assertEqual(self.cpu.get_reg8('B'), 5)
+        self.assertEqual(self.cpu.get_reg8('B'), 0x55)
         self.cpu.ld_reg8toreg8('A', 'B')()
-        self.assertEqual(self.cpu.get_reg8('B'), 6)
+        self.assertEqual(self.cpu.get_reg8('B'), 0x66)
 
-        self.cpu.ld_reg8toreg8('C', 'C')()
-        self.assertEqual(self.cpu.get_reg8('C'), 1)
-        self.cpu.ld_reg8toreg8('D', 'C')()
-        self.assertEqual(self.cpu.get_reg8('C'), 2)
-        self.cpu.ld_reg8toreg8('E', 'C')()
-        self.assertEqual(self.cpu.get_reg8('C'), 3)
-        self.cpu.ld_reg8toreg8('H', 'C')()
-        self.assertEqual(self.cpu.get_reg8('C'), 4)
-        self.cpu.ld_reg8toreg8('L', 'C')()
-        self.assertEqual(self.cpu.get_reg8('C'), 5)
-        self.cpu.ld_reg8toreg8('A', 'C')()
-        self.assertEqual(self.cpu.get_reg8('C'), 6)
+    def test_ld_reg8toreg8_invalid_register(self):
+        self.assertRaises(KeyError, self.cpu.ld_reg8toreg8('C', 'BC')())
+        self.assertRaises(KeyError, self.cpu.ld_reg8toreg8('BC', 'C')())
+        self.assertRaises(KeyError, self.cpu.ld_reg8toreg8('F', 'C')())
 
     def test_ld_reg8toreg16addr(self):
         for x in range(256):
@@ -195,6 +191,12 @@ class TestZ80LoadStore(unittest.TestCase):
             self.cpu.set_reg16('bc', 0xc000 + x)
             self.cpu.ld_reg8toreg16addr('a', 'bc')()
             self.assertEqual(self.cpu.mmu.get_addr(0xc000 + x), x)
+
+    def test_ld_reg8toreg16addr_inc(self):
+        raise NotImplementedError('TODO')
+
+    def test_ld_reg8toreg16addr_dec(self):
+        raise NotImplementedError('TODO')
 
     def test_ld_reg8toreg16addr_2(self):
         self.cpu.set_reg16('bc', 0xc000)

@@ -1,8 +1,8 @@
 
 import logging
 
-from .mmu import MMU
-from .z80 import Z80
+from slowboy.mmu import MMU
+from slowboy.z80 import Z80
 
 class HeadlessUI():
     def __init__(self, romfile, log_level=logging.WARNING):

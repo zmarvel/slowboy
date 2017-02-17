@@ -2,7 +2,7 @@
 import argparse as ap
 import logging
 
-from .ui import HeadlessUI
+from slowboy.ui import HeadlessUI
 
 parser = ap.ArgumentParser()
 parser.add_argument('romfile', type=str, help='the ROM to load')

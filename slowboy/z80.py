@@ -13,6 +13,7 @@ class State(enum.Enum):
 
 class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
+    internal_reglist = ['b', 'c', 'd', 'e', 'h', 'l', 'a', 'f']
 
     def __init__(self, log_level=logging.WARNING, mmu=None, interrupt_handler=None):
         self.clk = 0
@@ -121,8 +122,8 @@ class Z80(object):
 
                 0x02: self.ld_reg8toreg16addr('a', 'bc'),
                 0x12: self.ld_reg8toreg16addr('a', 'de'),
-                0x22: self.ld_reg8toreg16addr('a', 'hl', inc=True),
-                0x32: self.ld_reg8toreg16addr('a', 'hl', dec=True),
+                0x22: self.ld_reg8toreg16addr_inc('a', 'hl'),
+                0x32: self.ld_reg8toreg16addr_dec('a', 'hl'),
 
                 0x06: self.ld_imm8toreg8('b'),
                 0x16: self.ld_imm8toreg8('d'),
@@ -318,9 +319,24 @@ class Z80(object):
         return self.registers
 
     def set_reg8(self, reg8, value):
-        self.registers[reg8.lower()] = value & 0xff
+        """Set :py:data:reg8 to :py:data:value.
+
+        :param reg8: one of B, C, D, E, H, L, A, F
+        :param value"""
+
+        reg8 = reg8.lower()
+
+        if reg8 not in self.internal_reglist:
+            raise KeyError('unrecognized register {}'.format(reg8))
+
+        self.registers[reg8] = value & 0xff
 
     def get_reg8(self, reg8):
+        """Get the value of :py:data:reg8.
+
+        :param reg8: one of B, C, D, E, H, L, A, F
+        :raises KeyError"""
+
         return self.registers[reg8.lower()]
 
     def set_reg16(self, reg16, value):
@@ -504,7 +520,7 @@ class Z80(object):
         return ld
 
     def ld_reg8toreg16addr_inc(self, reg8, reg16):
-       """Returns a function to load an 8-bit register value into an address
+        """Returns a function to load an 8-bit register value into an address
         given by a 16-bit double register, then increment the address in the
         dregister.
 
@@ -520,7 +536,7 @@ class Z80(object):
         return ld
 
     def ld_reg8toreg16addr_dec(self, reg8, reg16):
-       """Returns a function to load an 8-bit register value into an address
+        """Returns a function to load an 8-bit register value into an address
         given by a 16-bit double register, then decrement the address in the
         dregister.
 

@@ -1495,8 +1495,6 @@ class Z80(object):
 
         self.set_reg8(result)
 
-        raise NotImplementedError('sla reg8')
-
     def sla_addr16(self, addr16):
         """0x20-0x25, 0x27
         Logical shift (addr16) left 1 and place old bit 0 in CF."""
@@ -1518,8 +1516,6 @@ class Z80(object):
             self.reset_carry_flag()
 
         self.mmu.set_addr(result)
-
-        raise NotImplementedError('sla (HL)')
 
     def sra_reg8(self, reg8):
         """0x28-0x2d, 0x2f
@@ -1543,8 +1539,6 @@ class Z80(object):
 
         self.set_reg8(result)
 
-        raise NotImplementedError('sra reg8')
-
     def sra_addr16(self, addr16):
         """0x20-0x25, 0x27
         Logical shift (addr16) right 1 and place old bit 7 in CF."""
@@ -1566,8 +1560,6 @@ class Z80(object):
             self.reset_carry_flag()
 
         self.mmu.set_addr(addr16, result)
-
-        raise NotImplementedError('sra (HL)')
 
     def cpl(self):
         """0x2f: ~A"""

@@ -7,6 +7,7 @@ class MMU():
         self.wram = bytearray(4*1024 + 4*1024)
         self.sprite_table = bytearray(160)
         self.hram = bytearray(127)
+        self.interrupt_enable = 0
 
     def load_rom(self, filename):
         with open(filename, 'rb') as f:
@@ -60,7 +61,7 @@ class MMU():
             # bit 2: timer interrupt
             # bit 3: serial interrupt
             # bit 4: joypad interrupt
-            raise NotImplementedError('interrupt enable register')
+            return self.interrupt_enable
         else:
             raise ValueError('invalid address {}'.format(addr))
 
@@ -107,7 +108,7 @@ class MMU():
             # bit 2: timer interrupt
             # bit 3: serial interrupt
             # bit 4: joypad interrupt
-            raise NotImplementedError('interrupt enable register')
+            self.interrupt_enable = value
         else:
             raise ValueError('invalid address {}'.format(addr))
 

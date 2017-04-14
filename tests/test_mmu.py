@@ -125,5 +125,5 @@ class TestMMU(unittest.TestCase):
 
     def test_set_addr_interrupt_enable_register(self):
         self.mmu.set_addr(0xffff, 255)
-        self.assertEqual(self.mmu.get_addr(0xffff), self.mmu.interrupt_register)
+        self.assertEqual(self.mmu.get_addr(0xffff), self.mmu.interrupt_enable)
         self.assertEqual(self.mmu.get_addr(0xffff), 255)

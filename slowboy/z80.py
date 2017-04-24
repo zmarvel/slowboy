@@ -1477,89 +1477,144 @@ class Z80(object):
         """0x20-0x25, 0x27
         Logical shift reg8 left 1 and place old bit 0 in CF."""
 
-        reg = self.get_reg8(reg8)
-        result = reg << 1
+        def sla():
+            reg = self.get_reg8(reg8)
+            result = reg << 1
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if (reg >> 7) & 0x01 == 1:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if (reg >> 7) & 0x01 == 1:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.set_reg8(result)
+            self.set_reg8(reg8, result)
+        return sla
 
-    def sla_addr16(self, addr16):
+    def sla_reg16addr(self, reg16):
         """0x20-0x25, 0x27
         Logical shift (addr16) left 1 and place old bit 0 in CF."""
 
-        reg = self.mmu.get_addr(addr16)
-        result = reg << 1
+        def sla():
+            addr = self.get_reg16(reg16)
+            reg = self.mmu.get_addr(addr)
+            result = reg << 1
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if (reg >> 7) & 0x01 == 1:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if (reg >> 7) & 0x01 == 1:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.mmu.set_addr(result)
+            self.mmu.set_addr(addr, result)
+        return sla
 
     def sra_reg8(self, reg8):
         """0x28-0x2d, 0x2f
-        Logical shift reg8 right 1 and place old bit 7 in CF."""
+        Arithmetic shift reg8 right 1 and place old bit 7 in CF."""
         
-        reg = self.get_reg8(reg8)
-        result = reg >> 1
+        def sra():
+            reg = self.get_reg8(reg8)
+            result = (reg & 0x80) | (reg >> 1)
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if reg & 0x01 == 1:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if reg & 0x01 == 1:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.set_reg8(result)
+            self.set_reg8(reg8, result)
+        return sra
 
-    def sra_addr16(self, addr16):
+    def sra_reg16addr(self, reg16):
         """0x20-0x25, 0x27
-        Logical shift (addr16) right 1 and place old bit 7 in CF."""
+        Arithmetic shift (addr16) right 1 and place old bit 7 in CF."""
 
-        reg = self.mmu.get_addr(addr16)
-        result = reg >> 1
+        def sra():
+            addr16 = self.get_reg16(reg16)
+            reg = self.mmu.get_addr(addr16)
+            result = (reg & 0x80) | (reg >> 1)
 
-        if result & 0xff == 0:
-            self.set_zero_flag()
-        else:
-            self.reset_zero_flag()
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
 
-        self.reset_halfcarry_flag()
-        self.reset_sub_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
 
-        if reg & 0x01 == 1:
-            self.set_carry_flag()
-        else:
-            self.reset_carry_flag()
+            if reg & 0x01 == 1:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
 
-        self.mmu.set_addr(addr16, result)
+            self.mmu.set_addr(addr16, result)
+        return sra
+
+    def srl_reg8(self, reg8):
+        """Logical shift reg8 right 1 and place old LSb in C"""
+
+        def srl():
+            reg = self.get_reg8(reg8)
+            result = reg >> 1
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+
+            if reg & 0x01 == 1:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+
+            self.set_reg8(reg8, result)
+        return srl
+
+    def srl_reg16addr(self, reg16):
+        """Logical shift reg8 right 1 and place old LSb in C"""
+
+        def srl():
+            addr = self.get_reg16(reg16)
+            reg = self.mmu.get_addr(addr)
+            result = reg >> 1
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+
+            if reg & 0x01 == 1:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+
+            self.mmu.set_addr(addr, result)
+        return srl
 
     def cpl(self):
         """0x2f: ~A"""

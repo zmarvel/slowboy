@@ -74,19 +74,22 @@ class TestZ80(unittest.TestCase):
 
     def test_get_reg8_invalid_argument(self):
         with self.assertRaises(KeyError) as cm:
-            self.cpu.get_reg8('BC', 0xbc)
+            self.cpu.get_reg8('BC')
 
         with self.assertRaises(KeyError) as cm:
-            self.cpu.get_reg8('de', 0xde)
+            self.cpu.get_reg8('de')
 
         with self.assertRaises(KeyError) as cm:
-            self.cpu.get_reg8('HL', 0xbc)
+            self.cpu.get_reg8('HL')
 
         with self.assertRaises(KeyError) as cm:
-            self.cpu.get_reg8('sp', 0xde)
+            self.cpu.get_reg8('sp')
 
         with self.assertRaises(KeyError) as cm:
-            self.cpu.get_reg8('PC', 0xff)
+            self.cpu.get_reg8('PC')
+
+        with self.assertRaises(KeyError) as cm:
+            self.cpu.get_reg8('x')
 
     def test_set_reg16(self):
         self.cpu.set_reg16('BC', 0x1234)
@@ -772,7 +775,7 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
 
-    def test_rl_reg8(self):
+    def test_rl_reg8_1(self):
         """Example from the Gameboy Programming Manual"""
 
         self.cpu.set_reg8('a', 0x95)
@@ -785,7 +788,23 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_rlc_reg8(self):
+    def test_rl_reg8_2(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.reset_carry_flag()
+        self.cpu.rl_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0x4a)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_rl_reg8_3(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.set_carry_flag()
+        self.cpu.rl_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0x4b)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_rlc_reg8_1(self):
         """Example from the Gameboy Programming Manual
         correction: result should be 0x0b, not 0x0a"""
 
@@ -799,7 +818,15 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_rr_reg8(self):
+    def test_rlc_reg8_2(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.reset_carry_flag()
+        self.cpu.rlc_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0x4b)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_rr_reg8_1(self):
         """Example from the Gameboy Programming Manual"""
 
         self.cpu.set_reg8('a', 0x81)
@@ -812,7 +839,23 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_rrc_reg8(self):
+    def test_rr_reg8_2(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.reset_carry_flag()
+        self.cpu.rr_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0x52)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_rr_reg8_3(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.set_carry_flag()
+        self.cpu.rr_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0xd2)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_rrc_reg8_1(self):
         """Example from the Gameboy Programming Manual"""
 
         self.cpu.set_reg8('a', 0x3b)
@@ -825,21 +868,108 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_sla_reg8(self):
-        # TODO
-        raise NotImplementedError('sla_reg8')
+    def test_rrc_reg8_2(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.rrc_reg8('b')()
 
-    def test_sla_addr16(self):
-        # TODO
-        raise NotImplementedError('sla_addr16')
+        self.assertEqual(self.cpu.get_reg8('b'), 0xd2)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
 
-    def test_sra_reg8(self):
-        # TODO
-        raise NotImplementedError('sla_reg8')
+    def test_sla_reg8_1(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.sla_reg8('b')()
 
-    def test_sra_addr16(self):
-        # TODO
-        raise NotImplementedError('sla_addr16')
+        self.assertEqual(self.cpu.get_reg8('b'), 0x4a)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_sla_reg8_2(self):
+        self.cpu.set_reg8('b', 0x25)
+        self.cpu.sla_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0x4a)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_sla_addr16_1(self):
+        addr = 0xc000
+        self.cpu.mmu.set_addr(addr, 0xa5)
+        self.cpu.set_reg16('hl', addr)
+        self.cpu.sla_reg16addr('hl')()
+
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_reg16('hl')), 0x4a)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_sla_addr16_2(self):
+        addr = 0xc000
+        self.cpu.mmu.set_addr(addr, 0x25)
+        self.cpu.set_reg16('hl', addr)
+        self.cpu.sla_reg16addr('hl')()
+
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_reg16('hl')), 0x4a)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_sra_reg8_1(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.sra_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0xd2)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_sra_reg8_2(self):
+        self.cpu.set_reg8('b', 0xa4)
+        self.cpu.sra_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0xd2)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_sra_addr16_1(self):
+        addr = 0xc000
+        self.cpu.mmu.set_addr(addr, 0xa5)
+        self.cpu.set_reg16('hl', addr)
+        self.cpu.sra_reg16addr('hl')()
+
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_reg16('hl')), 0xd2)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_sra_addr16_2(self):
+        addr = 0xc000
+        self.cpu.mmu.set_addr(addr, 0xa4)
+        self.cpu.set_reg16('hl', addr)
+        self.cpu.sra_reg16addr('hl')()
+
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_reg16('hl')), 0xd2)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_srl_reg8_1(self):
+        self.cpu.set_reg8('b', 0xa5)
+        self.cpu.srl_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0x52)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_srl_reg8_2(self):
+        self.cpu.set_reg8('b', 0xa4)
+        self.cpu.srl_reg8('b')()
+
+        self.assertEqual(self.cpu.get_reg8('b'), 0x52)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+    def test_srl_addr16_1(self):
+        addr = 0xc000
+        self.cpu.set_reg16('hl', addr)
+        self.cpu.mmu.set_addr(addr, 0xa5)
+        self.cpu.srl_reg16addr('hl')()
+
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_reg16('hl')), 0x52)
+        self.assertEqual(self.cpu.get_carry_flag(), 1)
+
+    def test_srl_addr16_2(self):
+        addr = 0xc000
+        self.cpu.set_reg16('hl', addr)
+        self.cpu.mmu.set_addr(addr, 0xa4)
+        self.cpu.srl_reg16addr('hl')()
+
+        self.assertEqual(self.cpu.mmu.get_addr(self.cpu.get_reg16('hl')), 0x52)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
 
     def test_cpl(self):
         self.cpu.set_reg8('a', 0x55)

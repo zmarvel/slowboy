@@ -1,0 +1,44 @@
+Address space,IO port,Abbreviation,R/W
+0xFF00,Joypad,JOYP,RW
+0xFF01,Serial transfer data,SB,RW
+0xFF02,Serial transfer control,SCX,RW
+0xFF04,Divider register,DIV,RW
+0xFF05,Timer counter,TIMA,RW
+0xFF06,Timer modulo,TMA,RW
+0xFF07,Timer control,TAC,RW
+0xFF0F,Interrupt flag,IF,RW
+0xFF10,Channel 1 sweep register,NR10,RW
+0xFF10,Channel 1 sound length/wave patten duty,NR11,RW
+0xFF12,Channel 1 volume envelope,NR12,RW
+0xFF13,Channel 1 frequency lo,NR13,W
+0xFF14,Channel 1 frequency hi,NR14,RW
+0xFF16,Channel 2 sound length/wave pattern duty,NR21,RW
+0xFF17,Channel 2 volume envelope,NR22,RW
+0xFF18,Channel 2 frequency lo,NR23,W
+0xFF19,Channel 2 frequency hi,NR24,RW
+0xFF1A,Channel 3 sound on/off,NR30,RW
+0xFF1B,Channel 3 sound length,NR31,RW
+0xFF1C,Channel 3 select output level,NR32,RW
+0xFF1D,Channel 3 frequency lo,NR33,W
+0xFF1E,Channel 3 frequency hi,NR34,RW
+0xFF20,Channel 4 sound length,NR41,RW
+0xFF21,Channel 4 volume envelope,NR42,RW
+0xFF22,Channel 4 polynomial counter,NR43,RW
+0xFF23,Channel 4 counter/consecutive and initial,NR44,RW
+0xFF24,Channel control,NR50,RW
+0xFF25,Sound output terminal select,NR51,RW
+0xFF26,Sound enable,NR52,RW
+0xFF30-0xFF3F,Wave pattern RAM,,RW
+0xFF70,LCD control register,LCDC,RW
+0xFF41,LCDC status,,RW
+0xFF42,Scroll Y,SCY,RW
+0xFF43,Scroll X,SCX,RW
+0xFF44,LCDC Y-coordinate,LY,R
+0xFF45,LY compare,LYC,RW
+0xFF46,DMA transfer and start address,DMA,W
+0xFF47,BG palette data,BGP,RW
+0xFF48,Object palette 0 data,OBP0,RW
+0xFF49,Object palette 1 data,OBP1,RW
+0xFF4A,Window Y postion,WY,RW
+0xFF4B,Window X postion,WX,RW
+0xFFFF,Interrupt enabble,IE,RW

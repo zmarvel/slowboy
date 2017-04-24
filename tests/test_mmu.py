@@ -7,7 +7,7 @@ import slowboy.mmu
 class TestMMU(unittest.TestCase):
     def setUp(self):
         self.mmu = slowboy.mmu.MMU()
-        self.rom_filename = 'AntHill.gb'
+        self.rom_filename = 'blank_rom.gb'
         self.mmu.load_rom(self.rom_filename)
 
     def test_load_rom(self):

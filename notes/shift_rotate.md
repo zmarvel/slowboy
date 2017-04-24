@@ -75,5 +75,22 @@ A ← 0b11010010, C ← 1
 There is no SLL instruction because SLA behaves the same. Wikipedia describes
 both[arithmetic-shift] operations[logical-shift] clearly.
 
+```
+A = 0b10100101
+SLA A
+A ← 0b01001010, C ← 1
+
+A = 0b10100101
+SRA A
+A ← 0b11010010, C ← 1
+
+A = 0b10100101
+SRL A
+A ← 0b01010010, C ← 1
+```
+
+Notice that for SRA, the MSb appears in both the first and second MSbs of the
+result, while for SRL, the first MSb is filled with a 0.
+
 [arithmetic-shift]: https://en.wikipedia.org/wiki/Arithmetic_shift
 [logical-shift]: https://en.wikipedia.org/wiki/Logical_shift

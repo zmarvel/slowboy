@@ -39,4 +39,6 @@ Additionally, if you have [coverage][coverage] installed, you can use that:
 $ coverage --source slowboy -m unittest discover tests
 ```
 
+[![Build Status](https://travis-ci.org/zmarvel/slowboy.svg?branch=master)](https://travis-ci.org/zmarvel/slowboy)
+
 [coverage]: https://pypi.python.org/pypi/coverage/

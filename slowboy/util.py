@@ -1,4 +1,7 @@
 
+from collections import namedtuple
+
+Op = namedtuple('Op', ['function', 'cycles'])
 
 def uint8toBCD(uint8):
     """Convert an 8-bit unsigned integer to binary-coded decimal."""

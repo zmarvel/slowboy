@@ -1,8 +1,9 @@
 
+import abc
 import enum
 import logging
 
-from slowboy.util import uint8toBCD, add_s8, add_s16, twoscompl8, twoscompl16
+from slowboy.util import Op, uint8toBCD, add_s8, add_s16, twoscompl8, twoscompl16
 from slowboy.mmu import MMU
 from slowboy.interrupts import InterruptHandler
 
@@ -11,12 +12,18 @@ class State(enum.Enum):
     HALT = 1
     STOP = 2
 
+class ClockListener(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def notify(self, cycles):
+        pass
+
 class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
     internal_reglist = ['b', 'c', 'd', 'e', 'h', 'l', 'a', 'f']
 
     def __init__(self, log_level=logging.WARNING, mmu=None, interrupt_handler=None):
-        self.clk = 0
+        self.clock = 0
+        self.clock_listeners = []
         self.registers = {
             'a': 0,
             'f': 0,
@@ -50,97 +57,97 @@ class Z80(object):
 
     def _init_opcode_map(self):
         self.opcode_map = {
-                0x00: self.nop,
-                0x10: self.stop,
-                0x76: self.halt,
-                0xf3: self.di,
-                0xfb: self.ei,
+                0x00: Op(self.nop, 4),
+                0x10: Op(self.stop, 4),
+                0x76: Op(self.halt, 4),
+                0xf3: Op(self.di, 4),
+                0xfb: Op(self.ei, 4),
 
-                0x40: self.ld_reg8toreg8('b', 'b'),
-                0x41: self.ld_reg8toreg8('b', 'c'),
-                0x42: self.ld_reg8toreg8('b', 'd'),
-                0x43: self.ld_reg8toreg8('b', 'e'),
-                0x44: self.ld_reg8toreg8('b', 'h'),
-                0x45: self.ld_reg8toreg8('b', 'l'),
-                0x46: self.ld_reg16addrtoreg8('hl', 'b'),
-                0x47: self.ld_reg8toreg8('b', 'a'),
-                0x48: self.ld_reg8toreg8('c', 'b'),
-                0x49: self.ld_reg8toreg8('c', 'c'),
-                0x4a: self.ld_reg8toreg8('c', 'd'),
-                0x4b: self.ld_reg8toreg8('c', 'e'),
-                0x4c: self.ld_reg8toreg8('c', 'h'),
-                0x4d: self.ld_reg8toreg8('c', 'l'),
-                0x4e: self.ld_reg16addrtoreg8('hl', 'c'),
-                0x4f: self.ld_reg8toreg8('c', 'a'),
-                0x50: self.ld_reg8toreg8('d', 'b'),
-                0x51: self.ld_reg8toreg8('d', 'c'),
-                0x52: self.ld_reg8toreg8('d', 'd'),
-                0x53: self.ld_reg8toreg8('d', 'e'),
-                0x54: self.ld_reg8toreg8('d', 'h'),
-                0x55: self.ld_reg8toreg8('d', 'l'),
-                0x56: self.ld_reg16addrtoreg8('hl', 'd'),
-                0x57: self.ld_reg8toreg8('d', 'a'),
-                0x58: self.ld_reg8toreg8('e', 'b'),
-                0x59: self.ld_reg8toreg8('e', 'c'),
-                0x5a: self.ld_reg8toreg8('e', 'd'),
-                0x5b: self.ld_reg8toreg8('e', 'e'),
-                0x5c: self.ld_reg8toreg8('e', 'h'),
-                0x5d: self.ld_reg8toreg8('e', 'l'),
-                0x5e: self.ld_reg16addrtoreg8('hl', 'e'),
-                0x5f: self.ld_reg8toreg8('e', 'a'),
-                0x60: self.ld_reg8toreg8('h', 'b'),
-                0x61: self.ld_reg8toreg8('h', 'c'),
-                0x62: self.ld_reg8toreg8('h', 'd'),
-                0x63: self.ld_reg8toreg8('h', 'e'),
-                0x64: self.ld_reg8toreg8('h', 'h'),
-                0x65: self.ld_reg8toreg8('h', 'l'),
-                0x66: self.ld_reg16addrtoreg8('hl', 'h'),
-                0x67: self.ld_reg8toreg8('h', 'a'),
-                0x68: self.ld_reg8toreg8('l', 'b'),
-                0x69: self.ld_reg8toreg8('l', 'c'),
-                0x6a: self.ld_reg8toreg8('l', 'd'),
-                0x6b: self.ld_reg8toreg8('l', 'e'),
-                0x6c: self.ld_reg8toreg8('l', 'h'),
-                0x6d: self.ld_reg8toreg8('l', 'l'),
-                0x6e: self.ld_reg16addrtoreg8('hl', 'l'),
-                0x6f: self.ld_reg8toreg8('l', 'a'),
-                0x70: self.ld_reg8toreg16addr('b', 'hl'),
-                0x71: self.ld_reg8toreg16addr('c', 'hl'),
-                0x72: self.ld_reg8toreg16addr('d', 'hl'),
-                0x73: self.ld_reg8toreg16addr('e', 'hl'),
-                0x74: self.ld_reg8toreg16addr('h', 'hl'),
-                0x75: self.ld_reg8toreg16addr('l', 'hl'),
-                0x77: self.ld_reg8toreg16addr('a', 'hl'),
-                0x78: self.ld_reg8toreg8('a', 'b'),
-                0x79: self.ld_reg8toreg8('a', 'c'),
-                0x7a: self.ld_reg8toreg8('a', 'd'),
-                0x7b: self.ld_reg8toreg8('a', 'e'),
-                0x7c: self.ld_reg8toreg8('a', 'h'),
-                0x7d: self.ld_reg8toreg8('a', 'l'),
-                0x7e: self.ld_reg16addrtoreg8('hl', 'a'),
-                0x7f: self.ld_reg8toreg8('a', 'a'),
+                0x40: Op(self.ld_reg8toreg8('b', 'b'), 4),
+                0x41: Op(self.ld_reg8toreg8('b', 'c'), 4),
+                0x42: Op(self.ld_reg8toreg8('b', 'd'), 4),
+                0x43: Op(self.ld_reg8toreg8('b', 'e'), 4),
+                0x44: Op(self.ld_reg8toreg8('b', 'h'), 4),
+                0x45: Op(self.ld_reg8toreg8('b', 'l'), 4),
+                0x46: Op(self.ld_reg16addrtoreg8('hl', 'b'), 8),
+                0x47: Op(self.ld_reg8toreg8('b', 'a'), 4),
+                0x48: Op(self.ld_reg8toreg8('c', 'b'), 4),
+                0x49: Op(self.ld_reg8toreg8('c', 'c'), 4),
+                0x4a: Op(self.ld_reg8toreg8('c', 'd'), 4),
+                0x4b: Op(self.ld_reg8toreg8('c', 'e'), 4),
+                0x4c: Op(self.ld_reg8toreg8('c', 'h'), 4),
+                0x4d: Op(self.ld_reg8toreg8('c', 'l'), 4),
+                0x4e: Op(self.ld_reg16addrtoreg8('hl', 'c'), 8),
+                0x4f: Op(self.ld_reg8toreg8('c', 'a'), 4),
+                0x50: Op(self.ld_reg8toreg8('d', 'b'), 4),
+                0x51: Op(self.ld_reg8toreg8('d', 'c'), 4),
+                0x52: Op(self.ld_reg8toreg8('d', 'd'), 4),
+                0x53: Op(self.ld_reg8toreg8('d', 'e'), 4),
+                0x54: Op(self.ld_reg8toreg8('d', 'h'), 4),
+                0x55: Op(self.ld_reg8toreg8('d', 'l'), 4),
+                0x56: Op(self.ld_reg16addrtoreg8('hl', 'd'), 8),
+                0x57: Op(self.ld_reg8toreg8('d', 'a'), 4),
+                0x58: Op(self.ld_reg8toreg8('e', 'b'), 4),
+                0x59: Op(self.ld_reg8toreg8('e', 'c'), 4),
+                0x5a: Op(self.ld_reg8toreg8('e', 'd'), 4),
+                0x5b: Op(self.ld_reg8toreg8('e', 'e'), 4),
+                0x5c: Op(self.ld_reg8toreg8('e', 'h'), 4),
+                0x5d: Op(self.ld_reg8toreg8('e', 'l'), 4),
+                0x5e: Op(self.ld_reg16addrtoreg8('hl', 'e'), 8),
+                0x5f: Op(self.ld_reg8toreg8('e', 'a'), 4),
+                0x60: Op(self.ld_reg8toreg8('h', 'b'), 4),
+                0x61: Op(self.ld_reg8toreg8('h', 'c'), 4),
+                0x62: Op(self.ld_reg8toreg8('h', 'd'), 4),
+                0x63: Op(self.ld_reg8toreg8('h', 'e'), 4),
+                0x64: Op(self.ld_reg8toreg8('h', 'h'), 4),
+                0x65: Op(self.ld_reg8toreg8('h', 'l'), 4),
+                0x66: Op(self.ld_reg16addrtoreg8('hl', 'h'), 8),
+                0x67: Op(self.ld_reg8toreg8('h', 'a'), 4),
+                0x68: Op(self.ld_reg8toreg8('l', 'b'), 4),
+                0x69: Op(self.ld_reg8toreg8('l', 'c'), 4),
+                0x6a: Op(self.ld_reg8toreg8('l', 'd'), 4),
+                0x6b: Op(self.ld_reg8toreg8('l', 'e'), 4),
+                0x6c: Op(self.ld_reg8toreg8('l', 'h'), 4),
+                0x6d: Op(self.ld_reg8toreg8('l', 'l'), 4),
+                0x6e: Op(self.ld_reg16addrtoreg8('hl', 'l'), 8),
+                0x6f: Op(self.ld_reg8toreg8('l', 'a'), 4),
+                0x70: Op(self.ld_reg8toreg16addr('b', 'hl'), 8),
+                0x71: Op(self.ld_reg8toreg16addr('c', 'hl'), 8),
+                0x72: Op(self.ld_reg8toreg16addr('d', 'hl'), 8),
+                0x73: Op(self.ld_reg8toreg16addr('e', 'hl'), 8),
+                0x74: Op(self.ld_reg8toreg16addr('h', 'hl'), 8),
+                0x75: Op(self.ld_reg8toreg16addr('l', 'hl'), 8),
+                0x77: Op(self.ld_reg8toreg16addr('a', 'hl'), 8),
+                0x78: Op(self.ld_reg8toreg8('a', 'b'), 4),
+                0x79: Op(self.ld_reg8toreg8('a', 'c'), 4),
+                0x7a: Op(self.ld_reg8toreg8('a', 'd'), 4),
+                0x7b: Op(self.ld_reg8toreg8('a', 'e'), 4),
+                0x7c: Op(self.ld_reg8toreg8('a', 'h'), 4),
+                0x7d: Op(self.ld_reg8toreg8('a', 'l'), 4),
+                0x7e: Op(self.ld_reg16addrtoreg8('hl', 'a'), 8),
+                0x7f: Op(self.ld_reg8toreg8('a', 'a'), 4),
 
-                0x02: self.ld_reg8toreg16addr('a', 'bc'),
-                0x12: self.ld_reg8toreg16addr('a', 'de'),
-                0x22: self.ld_reg8toreg16addr_inc('a', 'hl'),
-                0x32: self.ld_reg8toreg16addr_dec('a', 'hl'),
+                0x02: Op(self.ld_reg8toreg16addr('a', 'bc'), 8),
+                0x12: Op(self.ld_reg8toreg16addr('a', 'de'), 8),
+                0x22: Op(self.ld_reg8toreg16addr_inc('a', 'hl'), 8),
+                0x32: Op(self.ld_reg8toreg16addr_dec('a', 'hl'), 8),
 
-                0x06: self.ld_imm8toreg8('b'),
-                0x16: self.ld_imm8toreg8('d'),
-                0x26: self.ld_imm8toreg8('h'),
-                0x36: self.ld_imm8toreg16addr('hl'),
+                0x06: Op(self.ld_imm8toreg8('b'), 8),
+                0x16: Op(self.ld_imm8toreg8('d'), 8),
+                0x26: Op(self.ld_imm8toreg8('h'), 8),
+                0x36: Op(self.ld_imm8toreg16addr('hl'), 12),
 
-                0x08: self.ld_sptoimm16addr,
+                0x08: Op(self.ld_sptoimm16addr, 8),
 
-                0x0a: self.ld_reg16addrtoreg8('bc', 'a'),
-                0x1a: self.ld_reg16addrtoreg8('de', 'a'),
-                0x2a: self.ld_reg16addrtoreg8('hl', 'a', inc=True),
-                0x3a: self.ld_reg16addrtoreg8('hl', 'a', dec=True),
+                0x0a: Op(self.ld_reg16addrtoreg8('bc', 'a'), 8),
+                0x1a: Op(self.ld_reg16addrtoreg8('de', 'a'), 8),
+                0x2a: Op(self.ld_reg16addrtoreg8('hl', 'a', inc=True), 8),
+                0x3a: Op(self.ld_reg16addrtoreg8('hl', 'a', dec=True), 8),
 
-                0x0e: self.ld_imm8toreg8('c'),
-                0x1e: self.ld_imm8toreg8('e'),
-                0x2e: self.ld_imm8toreg8('l'),
-                0x3e: self.ld_imm8toreg8('a'),
+                0x0e: Op(self.ld_imm8toreg8('c'), 8),
+                0x1e: Op(self.ld_imm8toreg8('e'), 8),
+                0x2e: Op(self.ld_imm8toreg8('l'), 8),
+                0x3e: Op(self.ld_imm8toreg8('a'), 8),
 
                 0xe0: None, # ldh (imm8), a TODO
                 0xf0: None, # ldh a, (imm8) TODO
@@ -159,147 +166,151 @@ class Z80(object):
 
                 0xf8: None, # ld hl, sp+imm8 TODO
 
-                0xf9: self.ld_reg16toreg16('hl', 'sp'),
+                0xf9: Op(self.ld_reg16toreg16('hl', 'sp'), 8),
 
-                0xea: self.ld_reg8toimm16addr('a'),
-                0xfa: self.ld_imm16addrtoreg8('a'),
+                0xea: Op(self.ld_reg8toimm16addr('a'), 16),
+                0xfa: Op(self.ld_imm16addrtoreg8('a'), 16),
 
-                0x01: self.ld_imm16toreg16('bc'),
-                0x11: self.ld_imm16toreg16('de'),
-                0x21: self.ld_imm16toreg16('hl'),
-                0x31: self.ld_imm16toreg16('sp'),
+                0x01: Op(self.ld_imm16toreg16('bc'), 12),
+                0x11: Op(self.ld_imm16toreg16('de'), 12),
+                0x21: Op(self.ld_imm16toreg16('hl'), 12),
+                0x31: Op(self.ld_imm16toreg16('sp'), 12),
 
                 # arithmetic and logic
 
-                0x03: self.inc_reg16('bc'),
-                0x13: self.inc_reg16('de'),
-                0x23: self.inc_reg16('hl'),
-                0x33: self.inc_reg16('sp'),
-                0x04: self.inc_reg8('b'),
-                0x14: self.inc_reg8('d'),
-                0x24: self.inc_reg8('h'),
-                0x34: self.inc_addrHL,
-                0x0c: self.inc_reg8('c'),
-                0x1c: self.inc_reg8('e'),
-                0x2c: self.inc_reg8('l'),
-                0x3c: self.inc_reg8('a'),
-                0x05: self.dec_reg8('b'),
-                0x15: self.dec_reg8('d'),
-                0x25: self.dec_reg8('h'),
-                0x35: self.dec_addrHL,
-                0x0d: self.dec_reg8('c'),
-                0x1d: self.dec_reg8('e'),
-                0x2d: self.dec_reg8('l'),
-                0x3d: self.dec_reg8('a'),
-                0x0b: self.dec_reg16('bc'),
-                0x1b: self.dec_reg16('de'),
-                0x2b: self.dec_reg16('hl'),
-                0x3b: self.dec_reg16('sp'),
+                0x03: Op(self.inc_reg16('bc'), 8),
+                0x13: Op(self.inc_reg16('de'), 8),
+                0x23: Op(self.inc_reg16('hl'), 8),
+                0x33: Op(self.inc_reg16('sp'), 8),
+                0x04: Op(self.inc_reg8('b'), 4),
+                0x14: Op(self.inc_reg8('d'), 4),
+                0x24: Op(self.inc_reg8('h'), 4),
+                0x34: Op(self.inc_addrHL, 12),
+                0x0c: Op(self.inc_reg8('c'), 4),
+                0x1c: Op(self.inc_reg8('e'), 4),
+                0x2c: Op(self.inc_reg8('l'), 4),
+                0x3c: Op(self.inc_reg8('a'), 4),
+                0x05: Op(self.dec_reg8('b'), 4),
+                0x15: Op(self.dec_reg8('d'), 4),
+                0x25: Op(self.dec_reg8('h'), 4),
+                0x35: Op(self.dec_addrHL, 12),
+                0x0d: Op(self.dec_reg8('c'), 4),
+                0x1d: Op(self.dec_reg8('e'), 4),
+                0x2d: Op(self.dec_reg8('l'), 4),
+                0x3d: Op(self.dec_reg8('a'), 4),
+                0x0b: Op(self.dec_reg16('bc'), 8),
+                0x1b: Op(self.dec_reg16('de'), 8),
+                0x2b: Op(self.dec_reg16('hl'), 8),
+                0x3b: Op(self.dec_reg16('sp'), 8),
 
-                0x80: self.add_reg8toreg8('b', 'a'),
-                0x81: self.add_reg8toreg8('c', 'a'),
-                0x82: self.add_reg8toreg8('d', 'a'),
-                0x83: self.add_reg8toreg8('e', 'a'),
-                0x84: self.add_reg8toreg8('h', 'a'),
-                0x85: self.add_reg8toreg8('l', 'a'),
+                0x80: Op(self.add_reg8toreg8('b', 'a'), 4),
+                0x81: Op(self.add_reg8toreg8('c', 'a'), 4),
+                0x82: Op(self.add_reg8toreg8('d', 'a'), 4),
+                0x83: Op(self.add_reg8toreg8('e', 'a'), 4),
+                0x84: Op(self.add_reg8toreg8('h', 'a'), 4),
+                0x85: Op(self.add_reg8toreg8('l', 'a'), 4),
                 #0x86: self.add_reg16addrtoreg8('hl', 'a'),
-                0x87: self.add_reg8toreg8('a', 'a', carry=True),
-                0x88: self.add_reg8toreg8('b', 'a', carry=True),
-                0x89: self.add_reg8toreg8('c', 'a', carry=True),
-                0x8a: self.add_reg8toreg8('d', 'a', carry=True),
-                0x8b: self.add_reg8toreg8('e', 'a', carry=True),
-                0x8c: self.add_reg8toreg8('h', 'a', carry=True),
-                0x8d: self.add_reg8toreg8('l', 'a', carry=True),
+                0x87: Op(self.add_reg8toreg8('a', 'a', carry=True), 4),
+                0x88: Op(self.add_reg8toreg8('b', 'a', carry=True), 4),
+                0x89: Op(self.add_reg8toreg8('c', 'a', carry=True), 4),
+                0x8a: Op(self.add_reg8toreg8('d', 'a', carry=True), 4),
+                0x8b: Op(self.add_reg8toreg8('e', 'a', carry=True), 4),
+                0x8c: Op(self.add_reg8toreg8('h', 'a', carry=True), 4),
+                0x8d: Op(self.add_reg8toreg8('l', 'a', carry=True), 4),
                 #0x8e: self.add_reg16addrtoreg8('hl', 'a', carry=True),
-                0x8f: self.add_reg8toreg8('a', 'a', carry=True),
-                0x90: self.sub_reg8fromreg8('b', 'a'),
-                0x91: self.sub_reg8fromreg8('c', 'a'),
-                0x92: self.sub_reg8fromreg8('d', 'a'),
-                0x93: self.sub_reg8fromreg8('e', 'a'),
-                0x94: self.sub_reg8fromreg8('h', 'a'),
-                0x95: self.sub_reg8fromreg8('l', 'a'),
+                0x8f: Op(self.add_reg8toreg8('a', 'a', carry=True), 4),
+                0x90: Op(self.sub_reg8fromreg8('b', 'a'), 4),
+                0x91: Op(self.sub_reg8fromreg8('c', 'a'), 4),
+                0x92: Op(self.sub_reg8fromreg8('d', 'a'), 4),
+                0x93: Op(self.sub_reg8fromreg8('e', 'a'), 4),
+                0x94: Op(self.sub_reg8fromreg8('h', 'a'), 4),
+                0x95: Op(self.sub_reg8fromreg8('l', 'a'), 4),
                 #0x96: self.sub_reg16addrfromreg8('hl', 'a'),
-                0x97: self.sub_reg8fromreg8('a', 'a', carry=True),
-                0x98: self.sub_reg8fromreg8('b', 'a', carry=True),
-                0x99: self.sub_reg8fromreg8('c', 'a', carry=True),
-                0x9a: self.sub_reg8fromreg8('d', 'a', carry=True),
-                0x9b: self.sub_reg8fromreg8('e', 'a', carry=True),
-                0x9c: self.sub_reg8fromreg8('h', 'a', carry=True),
-                0x9d: self.sub_reg8fromreg8('l', 'a', carry=True),
+                0x97: Op(self.sub_reg8fromreg8('a', 'a', carry=True), 4),
+                0x98: Op(self.sub_reg8fromreg8('b', 'a', carry=True), 4),
+                0x99: Op(self.sub_reg8fromreg8('c', 'a', carry=True), 4),
+                0x9a: Op(self.sub_reg8fromreg8('d', 'a', carry=True), 4),
+                0x9b: Op(self.sub_reg8fromreg8('e', 'a', carry=True), 4),
+                0x9c: Op(self.sub_reg8fromreg8('h', 'a', carry=True), 4),
+                0x9d: Op(self.sub_reg8fromreg8('l', 'a', carry=True), 4),
                 #0x9e: self.sub_reg16addrfromreg8('hl', 'a', carry=True),
-                0x9f: self.sub_reg8fromreg8('a', 'a', carry=True),
-                0xa0: self.and_reg8('b'),
-                0xa1: self.and_reg8('c'),
-                0xa2: self.and_reg8('d'),
-                0xa3: self.and_reg8('e'),
-                0xa4: self.and_reg8('h'),
-                0xa5: self.and_reg8('l'),
-                0xa6: self.and_reg16addr('hl'),
-                0xa7: self.and_reg8('a'),
-                0xa8: self.xor_reg8('b'),
-                0xa9: self.xor_reg8('c'),
-                0xaa: self.xor_reg8('d'),
-                0xab: self.xor_reg8('e'),
-                0xac: self.xor_reg8('h'),
-                0xad: self.xor_reg8('l'),
-                0xae: self.xor_reg16addr('hl'),
-                0xaf: self.xor_reg8('a'),
-                0xb0: self.or_reg8('b'),
-                0xb1: self.or_reg8('c'),
-                0xb2: self.or_reg8('d'),
-                0xb3: self.or_reg8('e'),
-                0xb4: self.or_reg8('h'),
-                0xb5: self.or_reg8('l'),
-                0xb6: self.or_reg16addr('hl'),
-                0xb7: self.or_reg8('a'),
-                0xb8: self.cp_reg8toreg8('a', 'b'),
-                0xb9: self.cp_reg8toreg8('a', 'c'),
-                0xba: self.cp_reg8toreg8('a', 'd'),
-                0xbb: self.cp_reg8toreg8('a', 'e'),
-                0xbc: self.cp_reg8toreg8('a', 'h'),
-                0xbd: self.cp_reg8toreg8('a', 'l'),
-                0xbe: self.cp_reg8toreg16addr('a', 'hl'),
-                0xbf: self.cp_reg8toreg8('a', 'a'),
-                0xc6: self.add_imm8toreg8('a'),
-                0xd6: self.sub_imm8fromreg8('a'),
-                0xe6: self.and_imm8,
-                0xf6: self.or_imm8,
+                0x9f: Op(self.sub_reg8fromreg8('a', 'a', carry=True), 4),
+                0xa0: Op(self.and_reg8('b'), 4),
+                0xa1: Op(self.and_reg8('c'), 4),
+                0xa2: Op(self.and_reg8('d'), 4),
+                0xa3: Op(self.and_reg8('e'), 4),
+                0xa4: Op(self.and_reg8('h'), 4),
+                0xa5: Op(self.and_reg8('l'), 4),
+                0xa6: Op(self.and_reg16addr('hl'), 8),
+                0xa7: Op(self.and_reg8('a'), 4),
+                0xa8: Op(self.xor_reg8('b'), 4),
+                0xa9: Op(self.xor_reg8('c'), 4),
+                0xaa: Op(self.xor_reg8('d'), 4),
+                0xab: Op(self.xor_reg8('e'), 4),
+                0xac: Op(self.xor_reg8('h'), 4),
+                0xad: Op(self.xor_reg8('l'), 4),
+                0xae: Op(self.xor_reg16addr('hl'), 8),
+                0xaf: Op(self.xor_reg8('a'), 4),
+                0xb0: Op(self.or_reg8('b'), 4),
+                0xb1: Op(self.or_reg8('c'), 4),
+                0xb2: Op(self.or_reg8('d'), 4),
+                0xb3: Op(self.or_reg8('e'), 4),
+                0xb4: Op(self.or_reg8('h'), 4),
+                0xb5: Op(self.or_reg8('l'), 4),
+                0xb6: Op(self.or_reg16addr('hl'), 8),
+                0xb7: Op(self.or_reg8('a'), 4),
+                0xb8: Op(self.cp_reg8toreg8('a', 'b'), 4),
+                0xb9: Op(self.cp_reg8toreg8('a', 'c'), 4),
+                0xba: Op(self.cp_reg8toreg8('a', 'd'), 4),
+                0xbb: Op(self.cp_reg8toreg8('a', 'e'), 4),
+                0xbc: Op(self.cp_reg8toreg8('a', 'h'), 4),
+                0xbd: Op(self.cp_reg8toreg8('a', 'l'), 4),
+                0xbe: Op(self.cp_reg8toreg16addr('a', 'hl'), 8),
+                0xbf: Op(self.cp_reg8toreg8('a', 'a'), 4),
+                0xc6: Op(self.add_imm8toreg8('a'), 8),
+                0xd6: Op(self.sub_imm8fromreg8('a'), 8),
+                0xe6: Op(self.and_imm8, 8),
+                0xf6: Op(self.or_imm8, 8),
 
 
-                0xc7: self.rst, # TODO
-                0xd7: self.rst, # TODO
-                0xe7: self.rst, # TODO
-                0xf7: self.rst, # TODO
-                0xcf: self.rst, # TODO
-                0xdf: self.rst, # TODO
-                0xef: self.rst, # TODO
-                0xff: self.rst, # TODO
+                0xc7: Op(self.rst, 16), # TODO
+                0xd7: Op(self.rst, 16), # TODO
+                0xe7: Op(self.rst, 16), # TODO
+                0xf7: Op(self.rst, 16), # TODO
+                0xcf: Op(self.rst, 16), # TODO
+                0xdf: Op(self.rst, 16), # TODO
+                0xef: Op(self.rst, 16), # TODO
+                0xff: Op(self.rst, 16), # TODO
 
-                0xc3: self.jp_imm16addr(),
-                0xc2: self.jp_imm16addr('nz'),
-                0xd2: self.jp_imm16addr('nc'),
-                0xca: self.jp_imm16addr('z'),
-                0xda: self.jp_imm16addr('c'),
-                0xe9: self.jp_reg16addr('hl'),
+                # JP instructions take 16 cycles when taken, 12 when not taken
+                0xc3: Op(self.jp_imm16addr(), 16),
+                0xc2: Op(self.jp_imm16addr('nz'), 16),
+                0xd2: Op(self.jp_imm16addr('nc'), 16),
+                0xca: Op(self.jp_imm16addr('z'), 16),
+                0xda: Op(self.jp_imm16addr('c'), 16),
+                0xe9: Op(self.jp_reg16addr('hl'), 16),
 
-                0x18: self.jr_imm8(),
-                0x20: self.jr_imm8('nz'),
-                0x30: self.jr_imm8('nc'),
-                0x28: self.jr_imm8('z'),
-                0x38: self.jr_imm8('c'),
+                # JR instructions take 12 cycles when taken, 8 when not taken
+                0x18: Op(self.jr_imm8(), 12),
+                0x20: Op(self.jr_imm8('nz'), 12),
+                0x30: Op(self.jr_imm8('nc'), 12),
+                0x28: Op(self.jr_imm8('z'), 12),
+                0x38: Op(self.jr_imm8('c'), 12),
 
-                0xcd: self.call_imm16addr(),
-                0xc4: self.call_imm16addr('nz'),
-                0xd4: self.call_imm16addr('nc'),
-                0xcc: self.call_imm16addr('z'),
-                0xdc: self.call_imm16addr('c'),
+                # CALL takes 24 cycles when taken, 12 when not taken
+                0xcd: Op(self.call_imm16addr(), 24),
+                0xc4: Op(self.call_imm16addr('nz'), 24),
+                0xd4: Op(self.call_imm16addr('nc'), 24),
+                0xcc: Op(self.call_imm16addr('z'), 24),
+                0xdc: Op(self.call_imm16addr('c'), 24),
 
-                0xc9: self.ret(),
-                0xd9: self.reti,
-                0xc0: self.ret('nz'),
-                0xd0: self.ret('nc'),
-                0xc8: self.ret('z'),
-                0xd8: self.ret('c'),
+                # RET takes 20 cycles when taken, 8 when not taken
+                0xc9: Op(self.ret(), 20),
+                0xd9: Op(self.reti, 20),
+                0xc0: Op(self.ret('nz'), 20),
+                0xd0: Op(self.ret('nc'), 20),
+                0xc8: Op(self.ret('z'), 20),
+                0xd8: Op(self.ret('c'), 20),
                 }
 
     def __repr__(self):
@@ -314,6 +325,12 @@ class Z80(object):
                         c=self.get_reg8('c'), d=self.get_reg8('d'),
                         e=self.get_reg8('e'), h=self.get_reg8('h'),
                         l=self.get_reg8('l'))
+
+    def register_clock_listener(self, listener):
+        if not isinstance(listener, ClockListener):
+            raise TypeError('{} is not an instance of ClockListener')
+
+        self.clock_listeners.append(listener)
 
     def get_registers(self):
         return self.registers
@@ -447,7 +464,12 @@ class Z80(object):
             op = self.opcode_map[opcode]
 
             # execute
-            op()
+            op.function()
+
+            for listener in self.clock_listeners:
+                listener.notify(op.cycles)
+
+            self.clock += op.cycles
 
     def nop(self):
         """0x00"""

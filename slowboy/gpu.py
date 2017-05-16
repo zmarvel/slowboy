@@ -27,9 +27,15 @@ STAT_HBLANK_INTERRUPT_ENABLE = 1 << STAT_HBLANK_INTERRUPT_ENABLE_OFFSET
 STAT_LYC_OFFSET = 2
 STAT_MODE_OFFSET = 0
 
+from enum import Enum
 
+class Mode(Enum):
+    H_BLANK = 0
+    V_BLANK = 1
+    OAM_READ = 2
+    OAM_VRAM_READ = 3
 
-class GPU():
+class GPU(ClockListener):
     def __init__(self):
         self._lcdc = 0  # LCD control register
         self._stat = 0  # LCD status register
@@ -42,10 +48,35 @@ class GPU():
         self._bgp = 0   # BG palette data
         self._obp0 = 0  # Object palette 0 data
         self._obp1 = 0  # Object palette 1 data
+
+        self.mode = Mode.OAM_READ
+        self.mode_clock = 0
         
         self.vram = bytearray(8*1024)   # 0x8000-0x9fff
         self.oam = bytearray(0xa0)      # 0xfe00-0xfe9f
-    
+
+    def notify(self, clock, cycles):
+        self.mode_clock += cycles
+
+        if self.mode == Mode.OAM_READ and self.mode_clock >= 80:
+            self.mode = Mode.OAM_VRAM_READ
+            self.mode_clock = 0
+        elif self.mode == Mode.OAM_VRAM_READ and self.mode_clock >= 172:
+            self.mode = Mode.H_BLANK
+            self.mode_clock = 0
+        elif self.mode == Mode.H_BLANK and self.mode_clock >= 204:
+            self.mode = Mode.V_BLANK
+            self.mode_clock = 0
+        elif self.mode == Mode.V_BLANK and self.mode_clock >= 4560:
+            self.mode = Mode.OAM_READ
+            self.mode_clock = 0
+        else:
+            raise ValueError('Invalid GPU mode')
+
+    @property
+    def enabled(self):
+        return (self.lcdc >> LCDC_DISPLAY_ENABLE_OFFSET) & 1
+
     @property
     def lcdc(self):
         return self._lcdc

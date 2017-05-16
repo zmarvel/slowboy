@@ -1,27 +1,32 @@
 
 import abc
-import enum
+from enum import Enum
 import logging
 
 from slowboy.util import Op, uint8toBCD, add_s8, add_s16, twoscompl8, twoscompl16
 from slowboy.mmu import MMU
 from slowboy.interrupts import InterruptHandler
 
-class State(enum.Enum):
+class State(Enum):
     RUN = 0
     HALT = 1
     STOP = 2
 
 class ClockListener(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def notify(self, cycles):
+    def notify(self, clock: int, cycles: int):
+        """Notify the listener that the clock has advanced.
+
+        :param clock: The new value of the CPU clock.
+        :param cycles: The number of cycles that have passed since the last
+            notification."""
         pass
 
 class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
     internal_reglist = ['b', 'c', 'd', 'e', 'h', 'l', 'a', 'f']
 
-    def __init__(self, log_level=logging.WARNING, mmu=None, interrupt_handler=None):
+    def __init__(self, log_level=logging.WARNING):
         self.clock = 0
         self.clock_listeners = []
         self.registers = {
@@ -37,15 +42,9 @@ class Z80(object):
         self.sp = 0xfffe
         self.pc = 0x100
         self.state = State.STOP
-        if mmu:
-            self.mmu = mmu
-        else:
-            self.mmu = MMU()
-
-        if interrupt_handler:
-            self.interrupt_handler = interrupt_handler
-        else:
-            self.interrupt_handler = InterruptHandler()
+        self.mmu = MMU()
+        self.gpu = GPU()
+        self.interrupt_handler = InterruptHandler()
 
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
@@ -466,10 +465,10 @@ class Z80(object):
             # execute
             op.function()
 
-            for listener in self.clock_listeners:
-                listener.notify(op.cycles)
-
             self.clock += op.cycles
+
+            for listener in self.clock_listeners:
+                listener.notify(self.clock, op.cycles)
 
     def nop(self):
         """0x00"""

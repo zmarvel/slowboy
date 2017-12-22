@@ -190,18 +190,24 @@ class GPU(ClockListener):
         if self.mode == Mode.OAM_READ:
             if self.mode_clock >= 80:
                 self.mode = Mode.OAM_VRAM_READ
+                self.stat |= 0x3
                 self.mode_clock = 0
         elif self.mode == Mode.OAM_VRAM_READ:
             if self.mode_clock >= 172:
                 self.mode = Mode.H_BLANK
+                self.stat &= 0xff ^ 0x3
                 self.mode_clock = 0
         elif self.mode == Mode.H_BLANK:
             if self.mode_clock >= 204:
                 self.mode = Mode.V_BLANK
+                self.stat &= 0xff ^ 0x3
+                self.stat |= 0x01
                 self.mode_clock = 0
         elif self.mode == Mode.V_BLANK:
             if self.mode_clock >= 4560:
                 self.mode = Mode.OAM_READ
+                self.stat &= 0xff ^ 0x3
+                self.stat |= 0x02
                 self.mode_clock = 0
         else:
             raise ValueError('Invalid GPU mode')
@@ -215,12 +221,12 @@ class GPU(ClockListener):
         self.vram[addr] = value
         self._update_vram(addr, value)
 
-    def _update_vram(addr, val):
+    def _update_vram(self, addr, val):
         self.vram[addr] = val
         hi, lo = self.vram[addr], self.vram[addr+1]
         offset = (addr // 2) * 8
         for i in range(8):
-            self._vram_data[offset+i] = (((hi >> i) & 1) << 1) | ((lo >> i) & 1)
+            self.vram[offset+i] = (((hi >> i) & 1) << 1) | ((lo >> i) & 1)
 
     def get_oam(self, addr):
         return self.oam[addr]

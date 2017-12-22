@@ -2,7 +2,7 @@
 import abc
 from collections import namedtuple
 
-Op = namedtuple('Op', ['function', 'cycles'])
+Op = namedtuple('Op', ['function', 'cycles', 'description'])
 
 class ClockListener(metaclass=abc.ABCMeta):
     @abc.abstractmethod

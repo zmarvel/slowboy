@@ -1,10 +1,10 @@
 
-import abc
 from enum import Enum
 import logging
 
-from slowboy.util import Op, uint8toBCD, add_s8, add_s16, twoscompl8, twoscompl16
+from slowboy.util import Op, ClockListener, uint8toBCD, add_s8, add_s16, twoscompl8, twoscompl16
 from slowboy.mmu import MMU
+from slowboy.gpu import GPU
 from slowboy.interrupts import InterruptHandler
 
 class State(Enum):
@@ -12,21 +12,11 @@ class State(Enum):
     HALT = 1
     STOP = 2
 
-class ClockListener(metaclass=abc.ABCMeta):
-    @abc.abstractmethod
-    def notify(self, clock: int, cycles: int):
-        """Notify the listener that the clock has advanced.
-
-        :param clock: The new value of the CPU clock.
-        :param cycles: The number of cycles that have passed since the last
-            notification."""
-        pass
-
 class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
     internal_reglist = ['b', 'c', 'd', 'e', 'h', 'l', 'a', 'f']
 
-    def __init__(self, log_level=logging.WARNING):
+    def __init__(self, rom=None, mmu=None, gpu=None, log_level=logging.WARNING):
         self.clock = 0
         self.clock_listeners = []
         self.registers = {
@@ -42,8 +32,10 @@ class Z80(object):
         self.sp = 0xfffe
         self.pc = 0x100
         self.state = State.STOP
-        self.mmu = MMU()
-        self.gpu = GPU()
+        self.mmu = MMU(rom=rom) if mmu is None else mmu
+        self.gpu = GPU() if gpu is None else gpu
+        self.mmu.load_gpu(self.gpu)
+        self.register_clock_listener(self.gpu)
         self.interrupt_handler = InterruptHandler()
 
         self.logger = logging.getLogger(__name__)
@@ -148,20 +140,20 @@ class Z80(object):
                 0x2e: Op(self.ld_imm8toreg8('l'), 8),
                 0x3e: Op(self.ld_imm8toreg8('a'), 8),
 
-                0xe0: None, # ldh (imm8), a TODO
-                0xf0: None, # ldh a, (imm8) TODO
-                0xe2: None, # ld (c), a TODO
-                0xf2: None, # ld a, (c) TODO
+                0xe0: Op(self.ldh_regAtoaddr8, 12), # ldh (imm8), a
+                0xf0: Op(self.ldh_addr8toregA, 12), # ldh a, (imm8)
+                0xe2: Op(self.ldh_regAtoaddrC, 8), # ldh (c), a
+                0xf2: Op(self.ldh_addrCtoregA, 8), # ldh a, (c)
 
                 0xc1: None, # pop bc TODO
                 0xd1: None, # pop de TODO
                 0xe1: None, # pop hl TODO
                 0xf1: None, # pop af TODO (affects flags)
 
-                0xc5: None, # push bc TODO
-                0xd5: None, # push de TODO
-                0xe5: None, # push hl TODO
-                0xf5: None, # push af TODO
+                0xc5: Op(self.push_reg16('bc'), 16), # push bc
+                0xd5: Op(self.push_reg16('de'), 16), # push de
+                0xe5: Op(self.push_reg16('hl'), 16), # push hl
+                0xf5: Op(self.push_reg16('af'), 16), # push af
 
                 0xf8: None, # ld hl, sp+imm8 TODO
 
@@ -319,16 +311,15 @@ class Z80(object):
                 'a={a:#x}, b={b:#x}, c={c:#x}, d={d:#x}, e={e:#x}, '
                 'h={h:#x}, l={l:#x})'
                 ).format(
-                        state=self.state, pc=self.pc, sp=self.sp,
-                        a=self.get_reg8('a'), b=self.get_reg8('b'),
-                        c=self.get_reg8('c'), d=self.get_reg8('d'),
-                        e=self.get_reg8('e'), h=self.get_reg8('h'),
-                        l=self.get_reg8('l'))
+            state=self.state, pc=self.pc, sp=self.sp,
+            a=self.get_reg8('a'), f=self.get_reg8('f'),
+            b=self.get_reg8('b'), c=self.get_reg8('c'),
+            d=self.get_reg8('d'), e=self.get_reg8('e'),
+            h=self.get_reg8('h'), l=self.get_reg8('l'))
 
     def register_clock_listener(self, listener):
         if not isinstance(listener, ClockListener):
-            raise TypeError('{} is not an instance of ClockListener')
-
+            raise TypeError('listener must implement ClockListener')
         self.clock_listeners.append(listener)
 
     def get_registers(self):
@@ -366,6 +357,9 @@ class Z80(object):
         elif reg16 == 'hl':
             self.registers['h'] = (value >> 8) & 0xff
             self.registers['l'] = value & 0xff
+        elif reg16 == 'af':
+            self.registers['a'] = (value >> 8) & 0xff
+            self.registers['f'] = value & 0xff
         else:
             raise KeyError('unrecognized register {}'.format(reg16))
 
@@ -377,6 +371,8 @@ class Z80(object):
             return (self.registers['d'] << 8) | self.registers['e']
         elif reg16 == 'hl':
             return (self.registers['h'] << 8) | self.registers['l']
+        elif reg16 == 'af':
+            return (self.registers['a'] << 8) | self.registers['f']
         else:
             raise KeyError('unrecognized register {}'.format(reg16))
 
@@ -451,6 +447,25 @@ class Z80(object):
         value |= self.mmu.get_addr(self.get_pc()) << 8
         self.inc_pc()
         return value
+
+    def step(self):
+        self.logger.debug(self)
+        opcode = self.fetch()
+        print(self.opcode_map[opcode])
+
+        # decode
+        op = self.opcode_map[opcode]
+
+        if op is None:
+            raise ValueError('op {:#x} is None'.format(opcode))
+        # execute
+        op.function()
+
+        self.clock += op.cycles
+
+        for listener in self.clock_listeners:
+            listener.notify(self.clock, op.cycles)
+
 
     def go(self):
         self.state = State.RUN
@@ -678,6 +693,28 @@ class Z80(object):
         imm8 = self.fetch()
         addr16 = self.get_reg16('hl')
         self.mmu.set_addr(addr16, imm8)
+
+    def ldh_regAtoaddr8(self):
+        """0xe0 -- load regA to 0xff00+addr8
+        """
+        addr8 = self.fetch()
+        self.mmu.set_addr(0xff00+addr8, self.get_reg8('a'))
+
+    def ldh_addr8toregA(self):
+        """0xf0 -- load (0xff00+addr8) into regA
+        """
+        addr8 = self.fetch()
+        self.set_reg8('a', self.mmu.get_addr(0xff00+addr8))
+
+    def ldh_regAtoaddrC(self):
+        """0xe2 -- load regA to (0xff00+regC)
+        """
+        self.mmu.set_addr(0xff00+self.get_reg8('c'), self.get_reg8('a'))
+
+    def ldh_addrCtoregA(self):
+        """0xf2 -- load (0xff00+regC) to regA
+        """
+        self.set_reg8('a', self.mmu.get_addr(0xff00+self.get_reg8('c')))
 
     def inc_reg8(self, reg8):
         """Returns a function that increments :py:data:reg8.
@@ -1387,6 +1424,31 @@ class Z80(object):
                 self.reset_carry_flag()
         return cp
 
+    def cp_imm8toregA(self):
+        """Compares 8-bit immediate to value in register A, then sets appropriate flags.
+
+        :rtype: None"""
+
+        imm8 = self.fetch()
+        result = imm8 - self.mmu.get_addr(self.get_reg16(reg16))
+
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+
+        if result > 0:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
+
+        self.set_sub_flag()
+
+        if result < 0:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
+
     def rl_reg8(self, reg8):
         """Returns a function that shift :py:data:reg8 left 1, places the old
         bit 7 in the carry flag, and places old carry flag in bit 0.
@@ -1876,6 +1938,13 @@ class Z80(object):
                     self.set_pc(self.get_reg16(reg16))
                     self.set_sp(sp - 2)
         return call
+
+    def push_reg16(self, reg16):
+        """0xc5, 0xd5, 0xe5, 0xf5"""
+        def push():
+            self.set_sp(self.get_sp() - 1)
+            self.mmu.set_addr(self.get_sp(), self.get_reg16(reg16))
+        return push
 
     def rst(self):
         """0xc7, 0xd7, 0xe7, 0xf7, 0xcf, 0xdf, 0xef, 0xff -- rst xxH"""

@@ -1,7 +1,18 @@
 
+import abc
 from collections import namedtuple
 
 Op = namedtuple('Op', ['function', 'cycles'])
+
+class ClockListener(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def notify(self, clock: int, cycles: int):
+        """Notify the listener that the clock has advanced.
+
+        :param clock: The new value of the CPU clock.
+        :param cycles: The number of cycles that have passed since the last
+            notification."""
+        pass
 
 def uint8toBCD(uint8):
     """Convert an 8-bit unsigned integer to binary-coded decimal."""

@@ -9,6 +9,11 @@ from sdl2 import (
     SDL_Error
 )
 
+
+def torgba(c):
+    assert c < 4
+    return c*85
+
 def get_tile_surfaces(tiles, tile_size=(8, 8), format=sdl2.SDL_PIXELFORMAT_RGBA32):
     tile_width, tile_height = tile_size
     rgb_tile = bytearray(tile_width*tile_height*3)

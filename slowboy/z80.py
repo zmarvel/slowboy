@@ -268,6 +268,10 @@ class Z80(object):
 
                 0xe8: Op(self.add_imm8toregSP, 16, 'add sp, d8'),
 
+                0x09: Op(self.add_reg16toregHL('bc'), 8, 'add hl, bc'),
+                0x19: Op(self.add_reg16toregHL('de'), 8, 'add hl, de'),
+                0x29: Op(self.add_reg16toregHL('hl'), 8, 'add hl, hl'),
+                0x39: Op(self.add_reg16toregHL('sp'), 8, 'add hl, sp'),
 
                 0xc7: None, # rst 00h -- 16 TODO
                 0xd7: None, # rst 10h -- 16 TODO
@@ -308,6 +312,299 @@ class Z80(object):
                 0xc8: Op(self.ret('z'), 20, 'ret z'),
                 0xd8: Op(self.ret('c'), 20, 'ret c'),
                 }
+
+        self.cb_opcode_map = {
+            0x00: Op(self.rlc_reg8('b'), 8, 'rlc b'),
+            0x01: Op(self.rlc_reg8('c'), 8, 'rlc c'),
+            0x02: Op(self.rlc_reg8('d'), 8, 'rlc d'),
+            0x03: Op(self.rlc_reg8('e'), 8, 'rlc e'),
+            0x04: Op(self.rlc_reg8('h'), 8, 'rlc h'),
+            0x05: Op(self.rlc_reg8('l'), 8, 'rlc l'),
+            0x06: Op(self.rlc_reg16addr('hl'), 16, 'rlc (hl)'),
+            0x07: Op(self.rlc_reg8('a'), 8, 'rlc a'),
+
+            0x08: Op(self.rrc_reg8('b'), 8, 'rrc b'),
+            0x09: Op(self.rrc_reg8('c'), 8, 'rrc c'),
+            0x0a: Op(self.rrc_reg8('d'), 8, 'rrc d'),
+            0x0b: Op(self.rrc_reg8('e'), 8, 'rrc e'),
+            0x0c: Op(self.rrc_reg8('h'), 8, 'rrc h'),
+            0x0d: Op(self.rrc_reg8('l'), 8, 'rrc l'),
+            0x0e: Op(self.rrc_reg16addr('hl'), 16, 'rrc (hl)'),
+            0x0f: Op(self.rrc_reg8('a'), 8, 'rrc a'),
+
+            0x10: Op(self.rl_reg8('b'), 8, 'rl b'),
+            0x11: Op(self.rl_reg8('c'), 8, 'rl c'),
+            0x12: Op(self.rl_reg8('d'), 8, 'rl d'),
+            0x13: Op(self.rl_reg8('e'), 8, 'rl e'),
+            0x14: Op(self.rl_reg8('h'), 8, 'rl h'),
+            0x15: Op(self.rl_reg8('l'), 8, 'rl l'),
+            0x16: Op(self.rl_reg16addr('hl'), 16, 'rl (hl)'),
+            0x17: Op(self.rl_reg8('a'), 8, 'rl a'),
+
+            0x18: Op(self.rr_reg8('b'), 8, 'rr b'),
+            0x19: Op(self.rr_reg8('c'), 8, 'rr c'),
+            0x1a: Op(self.rr_reg8('d'), 8, 'rr d'),
+            0x1b: Op(self.rr_reg8('e'), 8, 'rr e'),
+            0x1c: Op(self.rr_reg8('h'), 8, 'rr h'),
+            0x1d: Op(self.rr_reg8('l'), 8, 'rr l'),
+            0x1e: Op(self.rr_reg16addr('hl'), 16, 'rr (hl)'),
+            0x1f: Op(self.rr_reg8('a'), 8, 'rr a'),
+
+            0x20: Op(self.sla_reg8('b'), 8, 'sla b'),
+            0x21: Op(self.sla_reg8('c'), 8, 'sla c'),
+            0x22: Op(self.sla_reg8('d'), 8, 'sla d'),
+            0x23: Op(self.sla_reg8('e'), 8, 'sla e'),
+            0x24: Op(self.sla_reg8('h'), 8, 'sla h'),
+            0x25: Op(self.sla_reg8('l'), 8, 'sla l'),
+            0x26: Op(self.sla_reg16addr('hl'), 16, 'sla (hl)'),
+            0x27: Op(self.sla_reg8('a'), 8, 'sla a'),
+
+            0x28: Op(self.sra_reg8('b'), 8, 'sra b'),
+            0x29: Op(self.sra_reg8('c'), 8, 'sra c'),
+            0x2a: Op(self.sra_reg8('d'), 8, 'sra d'),
+            0x2b: Op(self.sra_reg8('e'), 8, 'sra e'),
+            0x2c: Op(self.sra_reg8('h'), 8, 'sra h'),
+            0x2d: Op(self.sra_reg8('l'), 8, 'sra l'),
+            0x2e: Op(self.sra_reg16addr('hl'), 16, 'sra (hl)'),
+            0x2f: Op(self.sra_reg8('a'), 8, 'sra a'),
+
+            0x30: Op(self.swap_reg8('b'), 8, 'swap b'),
+            0x31: Op(self.swap_reg8('c'), 8, 'swap c'),
+            0x32: Op(self.swap_reg8('d'), 8, 'swap d'),
+            0x33: Op(self.swap_reg8('e'), 8, 'swap e'),
+            0x34: Op(self.swap_reg8('h'), 8, 'swap h'),
+            0x35: Op(self.swap_reg8('l'), 8, 'swap l'),
+            0x36: Op(self.swap_reg16addr('hl'), 16, 'swap (hl)'),
+            0x37: Op(self.swap_reg8('a'), 8, 'swap a'),
+
+            0x38: Op(self.srl_reg8('b'), 8, 'srl b'),
+            0x39: Op(self.srl_reg8('c'), 8, 'srl c'),
+            0x3a: Op(self.srl_reg8('d'), 8, 'srl d'),
+            0x3b: Op(self.srl_reg8('e'), 8, 'srl e'),
+            0x3c: Op(self.srl_reg8('h'), 8, 'srl h'),
+            0x3d: Op(self.srl_reg8('l'), 8, 'srl l'),
+            0x3e: Op(self.srl_reg16addr('hl'), 16, 'srl (hl)'),
+            0x3f: Op(self.srl_reg8('a'), 8, 'srl a'),
+
+            0x40: Op(self.bit_reg8(0, 'b'), 8, 'bit 0, b'),
+            0x41: Op(self.bit_reg8(0, 'c'), 8, 'bit 0, c'),
+            0x42: Op(self.bit_reg8(0, 'd'), 8, 'bit 0, d'),
+            0x43: Op(self.bit_reg8(0, 'e'), 8, 'bit 0, e'),
+            0x44: Op(self.bit_reg8(0, 'h'), 8, 'bit 0, h'),
+            0x45: Op(self.bit_reg8(0, 'l'), 8, 'bit 0, l'),
+            0x46: Op(self.bit_reg16addr(0, 'hl'), 16, 'bit 0, (hl)'),
+            0x47: Op(self.bit_reg8(0, 'a'), 8, 'bit 0, a'),
+
+            0x48: Op(self.bit_reg8(1, 'b'), 8, 'bit 1, b'),
+            0x49: Op(self.bit_reg8(1, 'c'), 8, 'bit 1, c'),
+            0x4a: Op(self.bit_reg8(1, 'd'), 8, 'bit 1, d'),
+            0x4b: Op(self.bit_reg8(1, 'e'), 8, 'bit 1, e'),
+            0x4c: Op(self.bit_reg8(1, 'h'), 8, 'bit 1, h'),
+            0x4d: Op(self.bit_reg8(1, 'l'), 8, 'bit 1, l'),
+            0x4e: Op(self.bit_reg16addr(1, 'hl'), 16, 'bit 1, (hl)'),
+            0x4f: Op(self.bit_reg8(1, 'a'), 8, 'bit 1, a'),
+
+            0x50: Op(self.bit_reg8(2, 'b'), 8, 'bit 2, b'),
+            0x51: Op(self.bit_reg8(2, 'c'), 8, 'bit 2, c'),
+            0x52: Op(self.bit_reg8(2, 'd'), 8, 'bit 2, d'),
+            0x53: Op(self.bit_reg8(2, 'e'), 8, 'bit 2, e'),
+            0x54: Op(self.bit_reg8(2, 'h'), 8, 'bit 2, h'),
+            0x55: Op(self.bit_reg8(2, 'l'), 8, 'bit 2, l'),
+            0x56: Op(self.bit_reg16addr(2, 'hl'), 16, 'bit 2, (hl)'),
+            0x57: Op(self.bit_reg8(2, 'a'), 8, 'bit 2, a'),
+
+            0x58: Op(self.bit_reg8(3, 'b'), 8, 'bit 3, b'),
+            0x59: Op(self.bit_reg8(3, 'c'), 8, 'bit 3, c'),
+            0x5a: Op(self.bit_reg8(3, 'd'), 8, 'bit 3, d'),
+            0x5b: Op(self.bit_reg8(3, 'e'), 8, 'bit 3, e'),
+            0x5c: Op(self.bit_reg8(3, 'h'), 8, 'bit 3, h'),
+            0x5d: Op(self.bit_reg8(3, 'l'), 8, 'bit 3, l'),
+            0x5e: Op(self.bit_reg16addr(3, 'hl'), 16, 'bit 3, (hl)'),
+            0x5f: Op(self.bit_reg8(3, 'a'), 8, 'bit 3, a'),
+
+            0x60: Op(self.bit_reg8(4, 'b'), 8, 'bit 4, b'),
+            0x61: Op(self.bit_reg8(4, 'c'), 8, 'bit 4, c'),
+            0x62: Op(self.bit_reg8(4, 'd'), 8, 'bit 4, d'),
+            0x63: Op(self.bit_reg8(4, 'e'), 8, 'bit 4, e'),
+            0x64: Op(self.bit_reg8(4, 'h'), 8, 'bit 4, h'),
+            0x65: Op(self.bit_reg8(4, 'l'), 8, 'bit 4, l'),
+            0x66: Op(self.bit_reg16addr(4, 'hl'), 16, 'bit 4, (hl)'),
+            0x67: Op(self.bit_reg8(4, 'a'), 8, 'bit 4, a'),
+
+            0x68: Op(self.bit_reg8(5, 'b'), 8, 'bit 5, b'),
+            0x69: Op(self.bit_reg8(5, 'c'), 8, 'bit 5, c'),
+            0x6a: Op(self.bit_reg8(5, 'd'), 8, 'bit 5, d'),
+            0x6b: Op(self.bit_reg8(5, 'e'), 8, 'bit 5, e'),
+            0x6c: Op(self.bit_reg8(5, 'h'), 8, 'bit 5, h'),
+            0x6d: Op(self.bit_reg8(5, 'l'), 8, 'bit 5, l'),
+            0x6e: Op(self.bit_reg16addr(5, 'hl'), 16, 'bit 5, (hl)'),
+            0x6f: Op(self.bit_reg8(5, 'a'), 8, 'bit 5, a'),
+
+            0x70: Op(self.bit_reg8(6, 'b'), 8, 'bit 6, b'),
+            0x71: Op(self.bit_reg8(6, 'c'), 8, 'bit 6, c'),
+            0x72: Op(self.bit_reg8(6, 'd'), 8, 'bit 6, d'),
+            0x73: Op(self.bit_reg8(6, 'e'), 8, 'bit 6, e'),
+            0x74: Op(self.bit_reg8(6, 'h'), 8, 'bit 6, h'),
+            0x75: Op(self.bit_reg8(6, 'l'), 8, 'bit 6, l'),
+            0x76: Op(self.bit_reg16addr(6, 'hl'), 16, 'bit 6, (hl)'),
+            0x77: Op(self.bit_reg8(6, 'a'), 8, 'bit 6, a'),
+
+            0x78: Op(self.bit_reg8(7, 'b'), 8, 'bit 7, b'),
+            0x79: Op(self.bit_reg8(7, 'c'), 8, 'bit 7, c'),
+            0x7a: Op(self.bit_reg8(7, 'd'), 8, 'bit 7, d'),
+            0x7b: Op(self.bit_reg8(7, 'e'), 8, 'bit 7, e'),
+            0x7c: Op(self.bit_reg8(7, 'h'), 8, 'bit 7, h'),
+            0x7d: Op(self.bit_reg8(7, 'l'), 8, 'bit 7, l'),
+            0x7e: Op(self.bit_reg16addr(7, 'hl'), 16, 'bit 7, (hl)'),
+            0x7f: Op(self.bit_reg8(7, 'a'), 8, 'bit 7, a'),
+
+            0x80: Op(self.res_reg8(0, 'b'), 8, 'res 0, b'),
+            0x81: Op(self.res_reg8(0, 'c'), 8, 'res 0, c'),
+            0x82: Op(self.res_reg8(0, 'd'), 8, 'res 0, d'),
+            0x83: Op(self.res_reg8(0, 'e'), 8, 'res 0, e'),
+            0x84: Op(self.res_reg8(0, 'h'), 8, 'res 0, h'),
+            0x85: Op(self.res_reg8(0, 'l'), 8, 'res 0, l'),
+            0x86: Op(self.res_reg16addr(0, 'hl'), 16, 'res 0, (hl)'),
+            0x87: Op(self.res_reg8(0, 'a'), 8, 'res 0, a'),
+
+            0x88: Op(self.res_reg8(1, 'b'), 8, 'res 1, b'),
+            0x89: Op(self.res_reg8(1, 'c'), 8, 'res 1, c'),
+            0x8a: Op(self.res_reg8(1, 'd'), 8, 'res 1, d'),
+            0x8b: Op(self.res_reg8(1, 'e'), 8, 'res 1, e'),
+            0x8c: Op(self.res_reg8(1, 'h'), 8, 'res 1, h'),
+            0x8d: Op(self.res_reg8(1, 'l'), 8, 'res 1, l'),
+            0x8e: Op(self.res_reg16addr(1, 'hl'), 16, 'res 1, (hl)'),
+            0x8f: Op(self.res_reg8(1, 'a'), 8, 'res 1, a'),
+
+            0x90: Op(self.res_reg8(2, 'b'), 8, 'res 2, b'),
+            0x91: Op(self.res_reg8(2, 'c'), 8, 'res 2, c'),
+            0x92: Op(self.res_reg8(2, 'd'), 8, 'res 2, d'),
+            0x93: Op(self.res_reg8(2, 'e'), 8, 'res 2, e'),
+            0x94: Op(self.res_reg8(2, 'h'), 8, 'res 2, h'),
+            0x95: Op(self.res_reg8(2, 'l'), 8, 'res 2, l'),
+            0x96: Op(self.res_reg16addr(2, 'hl'), 16, 'res 2, (hl)'),
+            0x97: Op(self.res_reg8(2, 'a'), 8, 'res 2, a'),
+
+            0x98: Op(self.res_reg8(3, 'b'), 8, 'res 3, b'),
+            0x99: Op(self.res_reg8(3, 'c'), 8, 'res 3, c'),
+            0x9a: Op(self.res_reg8(3, 'd'), 8, 'res 3, d'),
+            0x9b: Op(self.res_reg8(3, 'e'), 8, 'res 3, e'),
+            0x9c: Op(self.res_reg8(3, 'h'), 8, 'res 3, h'),
+            0x9d: Op(self.res_reg8(3, 'l'), 8, 'res 3, l'),
+            0x9e: Op(self.res_reg16addr(3, 'hl'), 16, 'res 3, (hl)'),
+            0x9f: Op(self.res_reg8(3, 'a'), 8, 'res 3, a'),
+
+            0xa0: Op(self.res_reg8(4, 'b'), 8, 'res 4, b'),
+            0xa1: Op(self.res_reg8(4, 'c'), 8, 'res 4, c'),
+            0xa2: Op(self.res_reg8(4, 'd'), 8, 'res 4, d'),
+            0xa3: Op(self.res_reg8(4, 'e'), 8, 'res 4, e'),
+            0xa4: Op(self.res_reg8(4, 'h'), 8, 'res 4, h'),
+            0xa5: Op(self.res_reg8(4, 'l'), 8, 'res 4, l'),
+            0xa6: Op(self.res_reg16addr(4, 'hl'), 16, 'res 4, (hl)'),
+            0xa7: Op(self.res_reg8(4, 'a'), 8, 'res 4, a'),
+
+            0xa8: Op(self.res_reg8(5, 'b'), 8, 'res 5, b'),
+            0xa9: Op(self.res_reg8(5, 'c'), 8, 'res 5, c'),
+            0xaa: Op(self.res_reg8(5, 'd'), 8, 'res 5, d'),
+            0xab: Op(self.res_reg8(5, 'e'), 8, 'res 5, e'),
+            0xac: Op(self.res_reg8(5, 'h'), 8, 'res 5, h'),
+            0xad: Op(self.res_reg8(5, 'l'), 8, 'res 5, l'),
+            0xae: Op(self.res_reg16addr(5, 'hl'), 16, 'res 5, (hl)'),
+            0xaf: Op(self.res_reg8(5, 'a'), 8, 'res 5, a'),
+
+            0xb0: Op(self.res_reg8(6, 'b'), 8, 'res 6, b'),
+            0xb1: Op(self.res_reg8(6, 'c'), 8, 'res 6, c'),
+            0xb2: Op(self.res_reg8(6, 'd'), 8, 'res 6, d'),
+            0xb3: Op(self.res_reg8(6, 'e'), 8, 'res 6, e'),
+            0xb4: Op(self.res_reg8(6, 'h'), 8, 'res 6, h'),
+            0xb5: Op(self.res_reg8(6, 'l'), 8, 'res 6, l'),
+            0xb6: Op(self.res_reg16addr(6, 'hl'), 16, 'res 6, (hl)'),
+            0xb7: Op(self.res_reg8(6, 'a'), 8, 'res 6, a'),
+
+            0xb8: Op(self.res_reg8(7, 'b'), 8, 'res 7, b'),
+            0xb9: Op(self.res_reg8(7, 'c'), 8, 'res 7, c'),
+            0xba: Op(self.res_reg8(7, 'd'), 8, 'res 7, d'),
+            0xbb: Op(self.res_reg8(7, 'e'), 8, 'res 7, e'),
+            0xbc: Op(self.res_reg8(7, 'h'), 8, 'res 7, h'),
+            0xbd: Op(self.res_reg8(7, 'l'), 8, 'res 7, l'),
+            0xbe: Op(self.res_reg16addr(7, 'hl'), 16, 'res 7, (hl)'),
+            0xbf: Op(self.res_reg8(7, 'a'), 8, 'res 7, a'),
+
+            0xc0: Op(self.set__reg8(0, 'b'), 8, 'set 0, b'),
+            0xc1: Op(self.set__reg8(0, 'c'), 8, 'set 0, c'),
+            0xc2: Op(self.set__reg8(0, 'd'), 8, 'set 0, d'),
+            0xc3: Op(self.set__reg8(0, 'e'), 8, 'set 0, e'),
+            0xc4: Op(self.set__reg8(0, 'h'), 8, 'set 0, h'),
+            0xc5: Op(self.set__reg8(0, 'l'), 8, 'set 0, l'),
+            0xc6: Op(self.set_reg16addr(0, 'hl'), 16, 'set 0, (hl)'),
+            0xc7: Op(self.set__reg8(0, 'a'), 8, 'set 0, a'),
+
+            0xc8: Op(self.set__reg8(1, 'b'), 8, 'set 1, b'),
+            0xc9: Op(self.set__reg8(1, 'c'), 8, 'set 1, c'),
+            0xca: Op(self.set__reg8(1, 'd'), 8, 'set 1, d'),
+            0xcb: Op(self.set__reg8(1, 'e'), 8, 'set 1, e'),
+            0xcc: Op(self.set__reg8(1, 'h'), 8, 'set 1, h'),
+            0xcd: Op(self.set__reg8(1, 'l'), 8, 'set 1, l'),
+            0xce: Op(self.set_reg16addr(1, 'hl'), 16, 'set 1, (hl)'),
+            0xcf: Op(self.set__reg8(1, 'a'), 8, 'set 1, a'),
+
+            0xd0: Op(self.set__reg8(2, 'b'), 8, 'set 2, b'),
+            0xd1: Op(self.set__reg8(2, 'c'), 8, 'set 2, c'),
+            0xd2: Op(self.set__reg8(2, 'd'), 8, 'set 2, d'),
+            0xd3: Op(self.set__reg8(2, 'e'), 8, 'set 2, e'),
+            0xd4: Op(self.set__reg8(2, 'h'), 8, 'set 2, h'),
+            0xd5: Op(self.set__reg8(2, 'l'), 8, 'set 2, l'),
+            0xd6: Op(self.set_reg16addr(2, 'hl'), 16, 'set 2, (hl)'),
+            0xd7: Op(self.set__reg8(2, 'a'), 8, 'set 2, a'),
+
+            0xd8: Op(self.set__reg8(3, 'b'), 8, 'set 3, b'),
+            0xd9: Op(self.set__reg8(3, 'c'), 8, 'set 3, c'),
+            0xda: Op(self.set__reg8(3, 'd'), 8, 'set 3, d'),
+            0xdb: Op(self.set__reg8(3, 'e'), 8, 'set 3, e'),
+            0xdc: Op(self.set__reg8(3, 'h'), 8, 'set 3, h'),
+            0xdd: Op(self.set__reg8(3, 'l'), 8, 'set 3, l'),
+            0xde: Op(self.set_reg16addr(3, 'hl'), 16, 'set 3, (hl)'),
+            0xdf: Op(self.set__reg8(3, 'a'), 8, 'set 3, a'),
+
+            0xe0: Op(self.set__reg8(4, 'b'), 8, 'set 4, b'),
+            0xe1: Op(self.set__reg8(4, 'c'), 8, 'set 4, c'),
+            0xe2: Op(self.set__reg8(4, 'd'), 8, 'set 4, d'),
+            0xe3: Op(self.set__reg8(4, 'e'), 8, 'set 4, e'),
+            0xe4: Op(self.set__reg8(4, 'h'), 8, 'set 4, h'),
+            0xe5: Op(self.set__reg8(4, 'l'), 8, 'set 4, l'),
+            0xe6: Op(self.set_reg16addr(4, 'hl'), 16, 'set 4, (hl)'),
+            0xe7: Op(self.set__reg8(4, 'a'), 8, 'set 4, a'),
+
+            0xe8: Op(self.set__reg8(5, 'b'), 8, 'set 5, b'),
+            0xe9: Op(self.set__reg8(5, 'c'), 8, 'set 5, c'),
+            0xea: Op(self.set__reg8(5, 'd'), 8, 'set 5, d'),
+            0xeb: Op(self.set__reg8(5, 'e'), 8, 'set 5, e'),
+            0xec: Op(self.set__reg8(5, 'h'), 8, 'set 5, h'),
+            0xed: Op(self.set__reg8(5, 'l'), 8, 'set 5, l'),
+            0xee: Op(self.set_reg16addr(5, 'hl'), 16, 'set 5, (hl)'),
+            0xef: Op(self.set__reg8(5, 'a'), 8, 'set 5, a'),
+
+            0xf0: Op(self.set__reg8(6, 'b'), 8, 'set 6, b'),
+            0xf1: Op(self.set__reg8(6, 'c'), 8, 'set 6, c'),
+            0xf2: Op(self.set__reg8(6, 'd'), 8, 'set 6, d'),
+            0xf3: Op(self.set__reg8(6, 'e'), 8, 'set 6, e'),
+            0xf4: Op(self.set__reg8(6, 'h'), 8, 'set 6, h'),
+            0xf5: Op(self.set__reg8(6, 'l'), 8, 'set 6, l'),
+            0xf6: Op(self.set_reg16addr(6, 'hl'), 16, 'set 6, (hl)'),
+            0xf7: Op(self.set__reg8(6, 'a'), 8, 'set 6, a'),
+
+            0xf8: Op(self.set__reg8(7, 'b'), 8, 'set 7, b'),
+            0xf9: Op(self.set__reg8(7, 'c'), 8, 'set 7, c'),
+            0xfa: Op(self.set__reg8(7, 'd'), 8, 'set 7, d'),
+            0xfb: Op(self.set__reg8(7, 'e'), 8, 'set 7, e'),
+            0xfc: Op(self.set__reg8(7, 'h'), 8, 'set 7, h'),
+            0xfd: Op(self.set__reg8(7, 'l'), 8, 'set 7, l'),
+            0xfe: Op(self.set_reg16addr(7, 'hl'), 16, 'set 7, (hl)'),
+            0xff: Op(self.set__reg8(7, 'a'), 8, 'set 7, a'),
+
+
+
+        }
 
     def __repr__(self):
         return ('Z80('
@@ -472,7 +769,11 @@ class Z80(object):
         else:
             self.logger.error('opcode {:#02x} (PC={:#04x})not found in opcode_map'.format(opcode, pc))
         # decode
-        op = self.opcode_map[opcode]
+        if opcode == 0xcb:
+            cb_opcode = self.fetch()
+            op = self.cb_opcode_map[cb_opcode]
+        else:
+            op = self.opcode_map[opcode]
         #print(hex(pc), op.description)
 
         if op is None:
@@ -1662,6 +1963,31 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return rl
 
+    def rl_reg16addr(self, reg16):
+        def rl():
+            self.logger.debug('rl ({})'.format(reg16))
+            last_carry = self.get_carry_flag()
+            reg = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(reg)
+            result = (d8 << 1) | last_carry
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+
+            if d8 & 0x80 == 0x80:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+
+            self.mmu.set_addr(reg, result)
+        return rl
+
+
     def rlc_reg8(self, reg8):
         """Returns a function that shifts :py:data:reg8 left 1, then 
         places the old bit 7 in the carry flag and bit 0.
@@ -1688,6 +2014,29 @@ class Z80(object):
                 self.reset_carry_flag()
 
             self.set_reg8(reg8, result)
+        return rlc
+
+    def rlc_reg16addr(self, reg16):
+        def rlc():
+            self.logger.debug('rlc ({})'.format(reg16))
+            reg = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(reg)
+            result = (d8 << 1) | (d8 >> 7)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+
+            if result & 0x100 == 0x100:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+
+            self.mmu.set_addr(reg, result)
         return rlc
 
     def rr_reg8(self, reg8):
@@ -1719,6 +2068,31 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return rr
 
+    def rr_reg16addr(self, reg16):
+        def rr():
+            self.logger.debug('rr ({})'.format(reg16))
+            last_carry = self.get_carry_flag()
+            reg = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(reg)
+            result = (d8 >> 1) | (last_carry << 7)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+
+            if d8 & 0x01 == 0x01:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+
+            self.mmu.set_addr(reg, result)
+        return rr
+
+
     def rrc_reg8(self, reg8):
         """0x0f, CB 0x08-0x0f
         logical shift reg8 right 1, place old bit 0 in CF and bit 7."""
@@ -1742,6 +2116,29 @@ class Z80(object):
                 self.reset_carry_flag()
 
             self.set_reg8(reg8, result)
+        return rrc
+
+    def rrc_reg16addr(self, reg16):
+        def rrc():
+            self.logger.debug('rrc ({})'.format(reg16))
+            reg = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(reg)
+            result = (d8 >> 1) | ((d8 << 7) & 0x80)
+
+            if result & 0xff == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+
+            if d8 & 0x01 == 0x01:
+                self.set_carry_flag()
+            else:
+                self.reset_carry_flag()
+
+            self.mmu.set_addr(reg, result)
         return rrc
 
     def sla_reg8(self, reg8):
@@ -1842,6 +2239,40 @@ class Z80(object):
             self.mmu.set_addr(addr16, result)
         return sra
 
+    def swap_reg8(self, reg8):
+        def swap():
+            d8 = self.get_reg8(reg8)
+            hi = d8 >> 4
+            lo = d8 & 0xf
+            result = (lo << 4) | hi
+            self.set_reg8(reg8, result)
+            if d8 == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+            self.reset_carry_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+        return swap
+
+    def swap_reg16addr(self, reg16):
+        def swap():
+            addr = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(addr)
+            hi = d8 >> 4
+            lo = d8 & 0xf
+            result = (lo << 4) | hi
+            self.mmu.set_addr(addr, result)
+            if d8 == 0:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+            self.reset_carry_flag()
+            self.reset_halfcarry_flag()
+            self.reset_sub_flag()
+        return swap
+
+
     def srl_reg8(self, reg8):
         """Logical shift reg8 right 1 and place old LSb in C"""
 
@@ -1887,6 +2318,59 @@ class Z80(object):
             self.mmu.set_addr(addr, result)
         return srl
 
+    def bit_reg8(self, i, reg8):
+        def bit():
+            d8 = self.get_reg8(reg8)
+            if (d8 >> i) & 0x1 == 1:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+            self.set_halfcarry_flag()
+            self.reset_sub_flag()
+        return bit
+
+    def bit_reg16addr(self, i, reg16):
+        def bit():
+            addr = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(addr)
+            if (d8 >> i) & 0x1 == 1:
+                self.set_zero_flag()
+            else:
+                self.reset_zero_flag()
+            self.set_halfcarry_flag()
+            self.reset_sub_flag()
+        return bit
+
+    def res_reg8(self, i, reg8):
+        def res():
+            d8 = self.get_reg8()
+            result = d8 & ((1 << i) ^ 0xff)
+            self.set_reg8(reg8, result)
+        return res
+
+    def res_reg16addr(self, i, reg16):
+        def res():
+            addr = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(addr)
+            result = d8 & ((1 << i) ^ 0xff)
+            self.mmu.set_addr(addr, result)
+        return res
+
+    def set__reg8(self, i, reg8):
+        def set():
+            d8 = self.get_reg8()
+            result = d8 | (1 << i)
+            self.set_reg8(reg8, result)
+        return set
+
+    def set_reg16addr(self, i, reg16):
+        def set():
+            addr = self.get_reg16(reg16)
+            d8 = self.mmu.get_addr(addr)
+            result = d8 | (1 << i)
+            self.mmu.set_addr(addr, result)
+        return set
+
     def cpl(self):
         """0x2f: ~A"""
 
@@ -1916,7 +2400,7 @@ class Z80(object):
         relative jump by this immediate if :py:data:cond is true.
 
         :param cond: Z, NZ, C, NC
-        :rtype: int → None"""
+        lrtype: int → None"""
 
         if cond:
             cond = cond.lower()

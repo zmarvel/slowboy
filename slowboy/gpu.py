@@ -23,8 +23,8 @@ STAT_MODE_OFFSET = 0
 from enum import Enum
 import logging
 
-from slowboy.util import ClockListener, torgba
-from slowboy.gfx import GBTileset, RGBTileset, get_tile_surfaces
+from slowboy.util import ClockListener
+from slowboy.gfx import GBTileset, RGBTileset, get_tile_surfaces, torgba
 import sdl2
 from sdl2 import SDL_BlitSurface
 

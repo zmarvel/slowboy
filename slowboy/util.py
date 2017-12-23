@@ -22,10 +22,6 @@ def uint8toBCD(uint8):
 
     return (d1 << 4) | d0
 
-def torgba(c):
-    assert c < 4
-    return ((c << 6) | (c << 4) | (c << 2) | c)
-
 def sub_s8(x, y):
     """Subtract two 8-bit integers stored in two's complement."""
 

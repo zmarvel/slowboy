@@ -1,10 +1,24 @@
 
+import logging
+
 from slowboy.gpu import GPU
+from slowboy.interrupts import InterruptHandler
 
 class MMU():
-    def __init__(self, rom: bytes=None, gpu: GPU=None):
+    def __init__(self, rom: bytes=None, gpu: GPU=None, interrupt_handler: InterruptHandler=None,
+                 logger=None, log_level=logging.WARNING):
+        if logger is None:
+            self.logger = logging.getLogger(__name__)
+        else:
+            self.logger = logger.getChild(__name__)
+        self.logger.propagate = True
+        self.logger.setLevel(log_level)
+
         self.rom = rom
-        self.gpu = None
+        if rom is not None:
+            self.log_rominfo()
+        self.gpu = gpu
+        self.interrupt_handler = interrupt_handler
         self.cartridge_ram = bytearray(8*1024)
         self.wram = bytearray(4*1024 + 4*1024)
         self.sprite_table = bytearray(160)
@@ -13,6 +27,64 @@ class MMU():
 
     def load_rom(self, romdata):
         self.rom = romdata
+        self.log_rominfo()
+
+    def log_rominfo(self):
+        log = self.logger.info
+        log('title: {}'.format(bytes(self.rom[0x134:0x144])))
+        log('licensee code: {}'.format(bytes(self.rom[0x144:0x146])))
+        log('SGB flag: {:#02x}'.format(self.rom[0x146]))
+        log('cart type: {:#02x}'.format(self.rom[0x147]))
+
+        # decode ROM size code
+        size_code = self.rom[0x148]
+        if size_code == 0x00:
+            rom_size = '32 kB'
+        elif size_code == 0x01:
+            rom_size = '64 kB'
+        elif size_code == 0x02:
+            rom_size = '128 kB'
+        elif size_code == 0x03:
+            rom_size = '256 kB'
+        elif size_code == 0x04:
+            rom_size = '512 kB'
+        elif size_code == 0x05:
+            rom_size = '1 MB'
+        elif size_code == 0x06:
+            rom_size = '2 MB'
+        elif size_code == 0x07:
+            rom_size = '3 MB'
+        elif size_code == 0x52:
+            rom_size = '1.1 MB'
+        elif size_code == 0x53:
+            rom_size = '1.2 MB'
+        elif size_code == 0x54:
+            rom_size = '1.5 MB'
+        else:
+            raise ValueError('unrecognized ROM size code')
+
+        log('ROM size: {}'.format(rom_size))
+
+        # decode RAM size code
+        size_code = self.rom[0x149]
+        if size_code == 0x00:
+            ram_size = 'None'
+        elif size_code == 0x01:
+            ram_size = '2 kB'
+        elif size_code == 0x02:
+            ram_size = '8 kB'
+        elif size_code == 0x03:
+            ram_size = '32 kB'
+        else:
+            raise ValueError('unrecognized RAM size code: {:#x}'.format(size_code))
+
+        log('RAM size: {}'.format(rom_size))
+
+        log('destination code: {:#02x}'.format(self.rom[0x14a]))
+        log('old licensee code: {:#02x}'.format(self.rom[0x14b]))
+        log('header checksum: {:#02x}'.format(self.rom[0x14d]))
+        log('global checksum: {:#04x}'.format((self.rom[0x14e] << 8) | self.rom[0x14f]))
+
 
     def unload_rom(self):
         self.rom = None
@@ -22,6 +94,9 @@ class MMU():
 
     def unload_gpu(self):
         self.gpu = None
+
+    def load_interrupt_handler(self, interrupt_handler):
+        self.interrupt_handler = interrupt_handler
 
     def get_addr(self, addr):
         if addr < 0:
@@ -53,7 +128,9 @@ class MMU():
             return self.gpu.get_oam(addr - 0xfe00)
         elif addr < 0xff00:
             # invalid
-            raise ValueError('invalid address {}'.format(addr))
+            self.logger.debug('read from invalid address {}'.format(addr))
+            return 0
+            #raise ValueError('invalid address {}'.format(addr))
         elif addr < 0xff80:
             # IO
             if addr == 0xff00:
@@ -69,7 +146,7 @@ class MMU():
             elif addr == 0xff07:
                 raise NotImplementedError('TAC register')
             elif addr == 0xff0f:
-                raise NotImplementedError('IF register')
+                return self.interrupt_handler.if_
             elif addr == 0xff10:
                 raise NotImplementedError('IF register')
             elif addr < 0xff40:
@@ -119,10 +196,10 @@ class MMU():
 
         if addr < 0:
             # invalid
-            raise ValueError('invalid address {}'.format(addr))
+            raise ValueError('cannot write to read-only address {:#04x}'.format(addr))
         elif addr < 0x8000:
             # ROM
-            raise ValueError('invalid address {} (in ROM)'.format(addr))
+            raise ValueError('cannot write to read-only address {:#04x} (in ROM)'.format(addr))
         elif addr < 0xa000:
             # VRAM (8 KB)
             self.gpu.set_vram(addr - 0x8000, value)
@@ -143,7 +220,8 @@ class MMU():
             self.gpu.set_oam(addr - 0xfe00, value)
         elif addr < 0xff00:
             # invalid
-            raise ValueError('invalid address {}'.format(addr))
+            self.logger.debug('write to invalid address {}'.format(addr))
+            #raise ValueError('invalid address {}'.format(addr))
         elif addr < 0xff80:
             # IO
             if addr == 0xff00:
@@ -159,11 +237,10 @@ class MMU():
             elif addr == 0xff07:
                 raise NotImplementedError('TAC register')
             elif addr == 0xff0f:
-                raise NotImplementedError('IF register')
-            elif addr == 0xff10:
-                raise NotImplementedError('IF register')
+                self.interrupt_handler.if_ = value
             elif addr < 0xff40:
-                raise NotImplementedError('sound registers')
+                self.logger.warn('not implemented: sound registers')
+                #raise NotImplementedError('sound registers')
             elif addr == 0xff40:
                 self.gpu.lcdc = value
             elif addr == 0xff41:
@@ -202,6 +279,6 @@ class MMU():
             # bit 4: joypad interrupt
             self.interrupt_enable = value
         else:
-            raise ValueError('invalid address {}'.format(addr))
+            raise ValueError('invalid address {}'.format(hex(addr)))
 
 

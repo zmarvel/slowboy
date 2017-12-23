@@ -24,8 +24,7 @@ def get_tile_surfaces(tiles, tile_size=(8, 8), format=sdl2.SDL_PIXELFORMAT_RGBA3
         if not surf:
             raise SDL_Error()
         else:
-            yield SDL_ConvertSurfaceFormat(surf, format, 0)
-            SDL_FreeSurface(surf)
+            yield surf
 
 
 def encode_rgb(iterable: Iterable[int], palette: Sequence[int]) \

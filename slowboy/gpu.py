@@ -21,8 +21,9 @@ STAT_LYC_FLAG_OFFSET = 2
 STAT_MODE_OFFSET = 0
 
 from enum import Enum
+import logging
 
-from slowboy.util import ClockListener
+from slowboy.util import ClockListener, torgba
 from slowboy.gfx import GBTileset, RGBTileset, get_tile_surfaces
 import sdl2
 from sdl2 import SDL_BlitSurface
@@ -88,7 +89,24 @@ class Mode(Enum):
     OAM_VRAM_READ = 3
 
 class GPU(ClockListener):
-    def __init__(self):
+    def __init__(self, logger=None, log_level=logging.WARNING):
+        if logger is None:
+            self.logger = logging.getLogger(__name__)
+        else:
+            self.logger = logger.getChild(__name__)
+        self.logger.setLevel(log_level)
+
+        self.vram = bytearray(0xa000 - 0x8000)   # 0x8000-0x9fff
+        self.oam = bytearray(0xfea0 - 0xfe00)    # 0xfe00-0xfe9f
+        self._bgsurfaces = []
+        self._bgsurface = sdl2.SDL_CreateRGBSurfaceWithFormat(0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT,
+                                                              32, sdl2.SDL_PIXELFORMAT_RGBA32)
+        self._bgtileset = None
+        self._lcdc = 0
+
+        self.bgp = 0    # BG palette data
+        self.obp0 = 0   # Object palette 0 data
+        self.obp1 = 0   # Object palette 1 data
         self.lcdc = 0   # LCD control register
         self.stat = 0   # LCD status register
         self.scy = 0    # Scroll y
@@ -97,15 +115,9 @@ class GPU(ClockListener):
         self.lyc = 0    # LY compare
         self.wy = 0     # Window y position
         self.wx = 0     # Window x position - 7
-        self.bgp = 0    # BG palette data
-        self.obp0 = 0   # Object palette 0 data
-        self.obp1 = 0   # Object palette 1 data
 
         self.mode = Mode.OAM_READ
         self.mode_clock = 0
-        
-        self.vram = bytearray(0xa000 - 0x8000)   # 0x8000-0x9fff
-        self.oam = bytearray(0xfea0 - 0xfe00)    # 0xfe00-0xfe9f
 
     def load_vram(self, vram):
         assert len(vram) == 0xa000 - 0x8000
@@ -115,44 +127,35 @@ class GPU(ClockListener):
         assert len(oam) == 0x100
         self.oam = bytearray(oam)
 
-    def draw(self, surface):
-        def torgba(c):
-            assert c < 4
-            return ((c << 6) | (c << 4) | (c << 2) | c)
-        bgpalette = [
-            torgba(self.bgp & 0x3),
-            torgba((self.bgp >> 2) & 0x3),
-            torgba((self.bgp >> 4) & 0x3),
-            torgba((self.bgp >> 6) & 0x3),
-        ]
-        # for fg, idx 0 is transparent
-        fgpalette = [
-            self.bgp & 0x3,
-            (self.bgp >> 2) & 0x3,
-            (self.bgp >> 4) & 0x3,
-            (self.bgp >> 6) & 0x3,
-        ]
-        obpalette0 = [
-            self.obp0 & 0x3,
-            (self.obp0 >> 2) & 0x3,
-            (self.obp0 >> 4) & 0x3,
-            (self.obp0 >> 6) & 0x3,
-        ]
-        obpalette1 = [
-            self.obp1 & 0x3,
-            (self.obp1 >> 2) & 0x3,
-            (self.obp1 >> 4) & 0x3,
-            (self.obp1 >> 6) & 0x3,
-        ]
+    @property
+    def lcdc(self):
+        return self._lcdc
 
-        if self.lcdc & LCDC_BG_TILE_DISPLAY_SELECT_MASK:
-            # 1=9C00-9FFF
-            bgmap_start = 0x9c00 - VRAM_START
-        else:
-            # 0=9800-9BFF
-            bgmap_start = 0x9800 - VRAM_START
-        bgmap = self.vram[bgmap_start:bgmap_start+0x400]
+    @lcdc.setter
+    def lcdc(self, value):
+        self._lcdc = value
+        self._update_tilesets()
+        self._update_surfaces()
+        self._update_bgsurface()
 
+    @property
+    def bgp(self):
+        return self._bgp
+
+    @bgp.setter
+    def bgp(self, value):
+        self._bgp = value
+        self._bgpalette = [
+            torgba(value & 0x3),
+            torgba((value >> 2) & 0x3),
+            torgba((value >> 4) & 0x3),
+            torgba((value >> 6) & 0x3),
+        ]
+        self._update_tilesets()
+        self._update_surfaces()
+        self._update_bgsurface()
+
+    def _update_tilesets(self):
         if self.lcdc & LCDC_BG_WINDOW_DATA_SELECT_MASK:
             # 1=8000-8FFF
             bgtileset = GBTileset(self.vram[0x8000-VRAM_START:0x8000-VRAM_START+0x1000],
@@ -162,9 +165,26 @@ class GPU(ClockListener):
             bgtileset = GBTileset(self.vram[0x8800-VRAM_START:0x8800-VRAM_START+0x1000],
                                   (256, 256), (8, 8))
 
-        bgsurfaces = list(get_tile_surfaces(bgtileset.to_rgb(bgpalette).split_tiles(),
-                                           format=surface.format.contents.format))
+        self._bgtileset = bgtileset
+        return self._bgtileset
 
+    def _update_surfaces(self):
+        for surf in self._bgsurfaces:
+            sdl2.SDL_FreeSurface(surf)
+        self._bgsurfaces = list(get_tile_surfaces(self._bgtileset.to_rgb(self._bgpalette).split_tiles()))
+        return self._bgsurfaces
+
+    def _update_bgsurface(self):
+        if self.lcdc & LCDC_BG_TILE_DISPLAY_SELECT_MASK:
+            # 1=9C00-9FFF
+            bgmap_start = 0x9c00 - VRAM_START
+        else:
+            # 0=9800-9BFF
+            bgmap_start = 0x9800 - VRAM_START
+        bgmap = self.vram[bgmap_start:bgmap_start+0x400]
+
+        bgsurface = self._bgsurface
+        bgsurfaces = self._bgsurfaces
         tile_size = (8, 8)
         tile_width, tile_height = tile_size
         width_tiles = BACKGROUND_WIDTH // tile_width
@@ -174,11 +194,20 @@ class GPU(ClockListener):
             y = (i // width_tiles) * tile_height
             src = sdl2.SDL_Rect(0, 0, 8, 8)
             dst = sdl2.SDL_Rect(x, y, 8, 8)
-            if SDL_BlitSurface(bgsurfaces[tid], src, surface, dst) < 0:
+            converted = sdl2.SDL_ConvertSurfaceFormat(bgsurfaces[tid], bgsurface.contents.format.contents.format, 0)
+            if SDL_BlitSurface(converted, src, bgsurface, dst) < 0:
                 raise sdl2.SDL_Error()
+            sdl2.SDL_FreeSurface(converted)
 
-        for surf in bgsurfaces:
-            sdl2.SDL_FreeSurface(surf)
+    def draw(self, surface):
+
+        converted = sdl2.SDL_ConvertSurfaceFormat(self._bgsurface, surface.format.contents.format, 0)
+        src = sdl2.SDL_Rect(0, 0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT)
+        dst = sdl2.SDL_Rect(0, 0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT)
+        if SDL_BlitSurface(converted, src, surface, dst) < 0:
+            raise sdl2.SDL_Error()
+        sdl2.SDL_FreeSurface(converted)
+
 
     def present(self):
         pass
@@ -219,21 +248,26 @@ class GPU(ClockListener):
 
     def set_vram(self, addr, value):
         self.vram[addr] = value
-        self._update_vram(addr, value)
+        self._update_tilesets()
+        self._update_surfaces()
+        self._update_bgsurface()
 
     def _update_vram(self, addr, val):
-        self.vram[addr] = val
-        hi, lo = self.vram[addr], self.vram[addr+1]
-        offset = (addr // 2) * 8
-        for i in range(8):
-            self.vram[offset+i] = (((hi >> i) & 1) << 1) | ((lo >> i) & 1)
+        """Update internal dataset (decoded tiles, etc)"""
+        # what is this for? TODO
+        #self.vram[addr] = val
+        #hi, lo = self.vram[addr], self.vram[addr+1]
+        #offset = (addr // 2) * 8
+        #for i in range(8):
+        #    self.vram[offset+i] = (((hi >> i) & 1) << 1) | ((lo >> i) & 1)
+        pass
 
     def get_oam(self, addr):
         return self.oam[addr]
 
     def set_oam(self, addr, value):
         self.oam[addr] = value
-        self._update_oam_sprites()
+        #self._update_oam_sprites()
 
     @property
     def enabled(self):

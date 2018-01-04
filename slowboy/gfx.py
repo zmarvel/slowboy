@@ -14,18 +14,20 @@ def torgba(c):
     assert c < 4
     return c*85
 
-def get_tile_surfaces(tiles, tile_size=(8, 8), format=sdl2.SDL_PIXELFORMAT_RGBA32):
+def get_tile_surfaces(tiles, palette, tile_size=(8, 8), format=sdl2.SDL_PIXELFORMAT_RGBA32):
     tile_width, tile_height = tile_size
-    rgb_tile = bytearray(tile_width*tile_height*3)
+    rgb_tile = bytearray(tile_width*tile_height*4)
     for tile in tiles:
-        for i in range(len(tile)):
-            rgb_tile[3*i] = tile[i]
-            rgb_tile[3*i+1] = tile[i]
-            rgb_tile[3*i+2] = tile[i]
+        for i, cidx in enumerate(tile):
+            c = palette[cidx // 85]
+            rgb_tile[4*i+0] = c >> 24
+            rgb_tile[4*i+1] = (c >> 16) & 0xff
+            rgb_tile[4*i+2] = (c >> 8) & 0xff
+            rgb_tile[4*i+3] = c & 0xff
 
         surf = SDL_CreateRGBSurfaceWithFormatFrom(bytes(rgb_tile), tile_width,
-                                                  tile_height, 24, 3*tile_width,
-                                                  sdl2.SDL_PIXELFORMAT_RGB24)
+                                                  tile_height, 32, 4*tile_width,
+                                                  sdl2.SDL_PIXELFORMAT_RGBA32)
         if not surf:
             raise SDL_Error()
         else:

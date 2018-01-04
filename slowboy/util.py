@@ -51,3 +51,13 @@ def twoscompl16(x):
     """Returns the reciprocal of 16-bit x in two's complement."""
 
     return ((x ^ 0xffff) + 1) & 0xffff
+
+def hexdump(bytes,  line_len, start=0):
+    line = []
+    for j, b in enumerate(bytes):
+        s = '{:02x}'.format(b)
+        if j % line_len == 0:
+            yield '{:04x}: {}'.format(start+j, ' '.join(line))
+            line = []
+        else:
+            line.append(s)

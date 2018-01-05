@@ -56,6 +56,7 @@ class InterruptController(InterruptListener):
     @if_.setter
     def if_(self, value):
         self.logger.debug('set IF to %#x', value)
+        print('set IF to %#x' % value)
         self._if = value
 
     @property
@@ -65,6 +66,7 @@ class InterruptController(InterruptListener):
     @ie.setter
     def ie(self, value):
         self.logger.debug('set IE to %#x', value)
+        print('set IE to %#x' % value)
         self._ie = value
 
     def ei(self):

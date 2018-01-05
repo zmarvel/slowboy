@@ -1,6 +1,7 @@
 
 from enum import Enum
 import logging
+from collections import defaultdict
 
 from slowboy.util import Op, ClockListener, twoscompl8, twoscompl16, add_s8, add_s16
 from slowboy.mmu import MMU
@@ -55,13 +56,11 @@ class Z80(object):
         self._sp = 0xfffe
         self._pc = 0x100
         self.op_pc = self.pc
-        self.opcode = self.mmu.get_addr(self.pc)
+        self.opcode = None
         self.cb_opcode = None
-        if self.opcode == 0xcb:
-            self.cb_opcode = self.fetch()
-            self.op = self.cb_opcode_map[self.cb_opcode]
-        else:
-            self.op = self.opcode_map[self.opcode]
+        self.op = None
+
+        self._calls = defaultdict(lambda: 0)
 
     def _init_opcode_map(self):
         self.opcode_map = {
@@ -2612,31 +2611,29 @@ class Z80(object):
         :param cond: one (or none) of Z, C, S, H
         :rtype: None → None"""
 
-        if cond == 'z':
-            def check_cond():
-                return self.get_zero_flag() == 1
-        elif cond == 'nz':
-            def check_cond():
-                return self.get_zero_flag() == 0
-        elif cond == 'c':
-            def check_cond():
-                return self.get_carry_flag() == 1
-        elif cond == 'nc':
-            def check_cond():
-                return self.get_carry_flag() == 0
-        elif cond is not None:
-            raise ValueError('cond must be one of Z, NZ, C, NC')
-
         if cond is None:
             def retc():
                 self.logger.debug('ret')
                 sp = self.sp
                 pc = (self.mmu.get_addr(sp + 1) << 8) | self.mmu.get_addr(sp)
                 self.pc = pc
-                self.sp = (sp + 2) & 0xffff
+                self.sp = sp + 2
         else:
+            cond = cond.lower()
             def retc():
-                if check_cond():
+                flag = False
+                if cond == 'z':
+                    flag = self.get_zero_flag() == 1
+                elif cond == 'nz':
+                    flag = self.get_zero_flag() == 0
+                elif cond == 'c':
+                    flag = self.get_carry_flag() == 1
+                elif cond == 'nc':
+                    flag = self.get_carry_flag() == 0
+                else:
+                    raise ValueError('cond must be one of Z, NZ, C, NC')
+
+                if flag:
                     self.logger.debug('ret %s', cond)
                     sp = self.sp
                     pc = (self.mmu.get_addr(sp + 1) << 8) | self.mmu.get_addr(sp)
@@ -2652,8 +2649,9 @@ class Z80(object):
 
         self.pc = self._saved_pc
         self._saved_pc = None
+        self.interrupt_controller.ei()
 
-    def call_imm16addr(self, cond=None):
+    def call_imm16addr(self, cond: str=None):
         """Returns a function that, based on :py:data:cond, pushes the current
         address in the program counter and jumps to the 16-bit immediate
         parameter of the function.
@@ -2661,27 +2659,10 @@ class Z80(object):
         :param cond: one of Z, C, S, H
         :rtype: int → None"""
 
-        if cond is not None:
-            cond = cond.lower()
-
-        if cond == 'z':
-            def check_cond():
-                return self.get_zero_flag() == 1
-        elif cond == 'nz':
-            def check_cond():
-                return self.get_zero_flag() == 0
-        elif cond == 'c':
-            def check_cond():
-                return self.get_carry_flag() == 1
-        elif cond == 'nc':
-            def check_cond():
-                return self.get_carry_flag() == 0
-        elif cond is not None:
-            raise ValueError('cond must be one of Z, NZ, C, NC')
-
         if cond is None:
             def call():
                 imm16 = self.fetch2()
+                self._calls[imm16] += 1
                 self.logger.debug('call %#06x', imm16)
                 pc = self.pc
                 sp = self.sp
@@ -2691,11 +2672,24 @@ class Z80(object):
                 self.sp = sp - 2
         else:
             def call():
+                cond = cond.lower()
+                if cond == 'z':
+                    flag = self.get_zero_flag() == 1
+                elif cond == 'nz':
+                    flag = self.get_zero_flag() == 0
+                elif cond == 'c':
+                    flag = self.get_carry_flag() == 1
+                elif cond == 'nc':
+                    flag = self.get_carry_flag() == 0
+                else:
+                    raise ValueError('cond must be one of Z, NZ, C, NC')
+
                 imm16 = self.fetch2()
+                self._calls[imm16] += 1
                 self.logger.debug('call %s, %#06x', cond, imm16)
                 pc = self.pc
                 sp = self.sp
-                if check_cond():
+                if flag:
                     self.mmu.set_addr(sp - 1, pc >> 8)
                     self.mmu.set_addr(sp - 2, pc & 0xff)
                     self.pc = imm16

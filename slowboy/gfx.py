@@ -9,22 +9,32 @@ from sdl2 import (
     SDL_Error
 )
 
+def ltorgba(c, alpha=0xff):
+    assert c < 256
+    return int(Color(c, c, c, alpha))
 
-def torgba(c):
+def rgbafrom2bit(c, alpha=0xff):
     assert c < 4
-    return c*85
+    return ltorgba(c*85, alpha=alpha)
+
+def lto2bit(c8):
+    return c8 // 85
 
 def get_tile_surfaces(tiles, palette, tile_size=(8, 8), format=sdl2.SDL_PIXELFORMAT_RGBA32):
+    """Surfaces in the returned iterator must be freed.
+    """
     tile_width, tile_height = tile_size
     rgb_tile = bytearray(tile_width*tile_height*4)
     for tile in tiles:
-        for i, cidx in enumerate(tile):
-            c = palette[cidx // 85]
+        for i, c8 in enumerate(tile):
+            # Get 32-bit RGBA color from 8-bit value
+            c = palette[lto2bit(c8)]
             rgb_tile[4*i+0] = c >> 24
             rgb_tile[4*i+1] = (c >> 16) & 0xff
             rgb_tile[4*i+2] = (c >> 8) & 0xff
             rgb_tile[4*i+3] = c & 0xff
 
+        # depth = 32, pitch=4*(size of row in px)
         surf = SDL_CreateRGBSurfaceWithFormatFrom(bytes(rgb_tile), tile_width,
                                                   tile_height, 32, 4*tile_width,
                                                   sdl2.SDL_PIXELFORMAT_RGBA32)
@@ -105,10 +115,8 @@ class RGBTileset():
         :param palette: A list of colors used to decode the image.
         :returns: A decoded RGB8 tileset.
         """
-        size = gbtileset.size
-        tile_size = gbtileset.tile_size
         width, height = gbtileset.size
-        twidth, theight = tile_size
+        twidth, theight = gbtileset.tile_size
         width_tiles = width // twidth
         height_tiles = height // theight
         encoded_tiles = gbtileset.split_tiles()

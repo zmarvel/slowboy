@@ -1,7 +1,7 @@
 
 import logging
 
-from slowboy.gpu import GPU
+from slowboy.gpu import GPU, VRAM_START, OAM_START
 from slowboy.interrupts import InterruptController
 
 JOYP_SELECT_BUTTON_MASK = 0x20
@@ -126,7 +126,7 @@ class MMU():
             return self.rom[addr]
         elif addr < 0xa000:
             # VRAM (8 KB)
-            return self.gpu.get_vram(addr - 0x8000)
+            return self.gpu.get_vram(addr - VRAM_START)
         elif addr < 0xc000:
             # cartridge RAM (8 KB)
             return self.cartridge_ram[addr - 0xa000]
@@ -141,7 +141,7 @@ class MMU():
             return self.get_addr(addr - 0x2000)
         elif addr < 0xfea0:
             # sprite table (OAM)
-            return self.gpu.get_oam(addr - 0xfe00)
+            return self.gpu.get_oam(addr - OAM_START)
         elif addr < 0xff00:
             # invalid
             self.logger.debug('read from invalid address %#04x', addr)
@@ -150,26 +150,7 @@ class MMU():
         elif addr < 0xff80:
             # IO
             if addr == 0xff00:
-                joyp = self._joyp
-                if joyp & JOYP_SELECT_BUTTON_MASK == JOYP_SELECT_BUTTON_MASK:
-                    if self._buttons['down']:
-                        joyp |= 0x08
-                    if self._buttons['up']:
-                        joyp |= 0x04
-                    if self._buttons['left']:
-                        joyp |= 0x02
-                    if self._buttons['right']:
-                        joyp |= 0x01
-                elif joyp & JOYP_SELECT_DIRECTION_MASK == JOYP_SELECT_BUTTON_MASK:
-                    if self._buttons['start']:
-                        joyp |= 0x08
-                    if self._buttons['select']:
-                        joyp |= 0x04
-                    if self._buttons['b']:
-                        joyp |= 0x02
-                    if self._buttons['a']:
-                        joyp |= 0x01
-                return joyp
+                return self.joyp
             elif addr == 0xff01 | addr == 0xff02:
                 raise NotImplementedError('Serial transfer registers')
             elif addr == 0xff04:
@@ -177,11 +158,12 @@ class MMU():
             elif addr == 0xff05:
                 raise NotImplementedError('TIMA register')
             elif addr == 0xff06:
-                self.logger.warning('not implemented: TMA register')
-                #raise NotImplementedError('TMA register')
+                self.logger.error('not implemented: TMA register')
+                raise NotImplementedError('TMA register')
             elif addr == 0xff07:
                 raise NotImplementedError('TAC register')
             elif addr == 0xff0f:
+                # IF
                 return self.interrupt_controller.if_
             elif addr == 0xff10:
                 raise NotImplementedError('IF register')
@@ -238,7 +220,7 @@ class MMU():
             self.logger.warning('cannot write to read-only address %#04x (in ROM)', addr)
         elif addr < 0xa000:
             # VRAM (8 KB) 0x8000-0xa000
-            self.gpu.set_vram(addr - 0x8000, value)
+            self.gpu.set_vram(addr - VRAM_START, value)
         elif addr < 0xc000:
             # cartridge RAM (8 KB) 0xa000-0xc000
             self.cartridge_ram[addr - 0xa000] = value
@@ -253,14 +235,14 @@ class MMU():
             self.set_addr(addr - 0x2000, value)
         elif addr < 0xfea0:
             # sprite table (OAM) 0xfe00-fe9
-            self.gpu.set_oam(addr - 0xfe00, value)
+            self.gpu.set_oam(addr - OAM_START, value)
         elif addr < 0xff00:
             # invalid
             self.logger.debug('write to invalid address %#04x', addr)
         elif addr < 0xff80:
             # IO 0xff00-0xff7f
             if addr == 0xff00:
-                self._joyp = value & 0x30
+                self.joyp = value
             elif addr == 0xff01 | addr == 0xff02:
                 raise NotImplementedError('Serial transfer registers')
             elif addr == 0xff04:
@@ -268,11 +250,12 @@ class MMU():
             elif addr == 0xff05:
                 raise NotImplementedError('TIMA register')
             elif addr == 0xff06:
-                self.logger.warning('not implemented: TMA register')
-                #raise NotImplementedError('TMA register')
+                self.logger.error('not implemented: TMA register')
+                raise NotImplementedError('TMA register')
             elif addr == 0xff07:
                 raise NotImplementedError('TAC register')
             elif addr == 0xff0f:
+                # IF
                 self.interrupt_controller.if_ = value
             elif addr < 0xff40:
                 self.logger.warn('not implemented: sound registers')
@@ -316,4 +299,39 @@ class MMU():
         else:
             raise ValueError('invalid address {:#04x}'.format(hex(addr)))
 
+    @property
+    def joyp(self):
+        joyp = self._joyp & 0xf0
+        if joyp & JOYP_SELECT_BUTTON_MASK:
+            if not self._buttons['down']:
+                joyp |= 0x08
+            if not self._buttons['up']:
+                joyp |= 0x04
+            if not self._buttons['left']:
+                joyp |= 0x02
+            if not self._buttons['right']:
+                joyp |= 0x01
+        if joyp & JOYP_SELECT_DIRECTION_MASK:
+            if not self._buttons['start']:
+                joyp |= 0x08
+            else:
+                pass
+            if not self._buttons['select']:
+                joyp |= 0x04
+            if not self._buttons['b']:
+                joyp |= 0x02
+            if not self._buttons['a']:
+                joyp |= 0x01
+        return joyp
 
+    @joyp.setter
+    def joyp(self, value):
+        self._joyp = value & 0x30
+
+    def press_button(self, button: str):
+        print(button, 'DOWN', hex(self.joyp))
+        self._buttons[button] = True
+
+    def unpress_button(self, button: str):
+        print(button, 'UP', hex(self.joyp))
+        self._buttons[button] = False

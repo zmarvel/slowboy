@@ -6,7 +6,7 @@ import select
 
 from slowboy.mmu import MMU
 from slowboy.z80 import Z80
-from slowboy.gpu import SCREEN_WIDTH, SCREEN_HEIGHT, VRAM_START, BACKGROUND_SIZE
+from slowboy.gpu import SCREEN_WIDTH, SCREEN_HEIGHT, VRAM_START, OAM_START, BACKGROUND_SIZE
 from slowboy.util import hexdump
 
 
@@ -110,11 +110,24 @@ if __name__ == '__main__':
     step = True
     breakpoint = None
 
+    button_map = {
+        sdl2.SDLK_DOWN: 'down',
+        sdl2.SDLK_UP: 'up',
+        sdl2.SDLK_LEFT: 'left',
+        sdl2.SDLK_RIGHT: 'right',
+        sdl2.SDLK_RETURN: 'start',
+        sdl2.SDLK_RSHIFT: 'select',
+        sdl2.SDLK_a: 'a',
+        sdl2.SDLK_z: 'b',
+    }
+
     while running:
         events = sdl2.ext.get_events()
         for event in events:
             if event.type == sdl2.events.SDL_QUIT:
                 running = False
+                ui.cpu.log_regs(log=ui.logger.info)
+                ui.cpu.log_op(log=ui.logger.info)
                 break
             if event.type == sdl2.SDL_KEYDOWN:
                 if event.key.keysym.sym == sdl2.SDLK_s:
@@ -123,8 +136,23 @@ if __name__ == '__main__':
                 elif event.key.keysym.sym == sdl2.SDLK_c:
                     step = False
                 elif event.key.keysym.sym == sdl2.SDLK_q:
+                    ui.cpu.log_regs(log=ui.logger.info)
+                    ui.cpu.log_op(log=ui.logger.info)
+                    for a in sorted(ui.cpu._calls.keys()):
+                        print(hex(a), ui.cpu._calls[a])
                     running = False
                     break
+                elif event.key.keysym.sym == sdl2.SDLK_d:
+                    ui.cpu.gpu.logger.setLevel(logging.DEBUG)
+                elif event.key.keysym.sym == sdl2.SDLK_i:
+                    ui.cpu.gpu.logger.setLevel(logging.INFO)
+                elif event.key.keysym.sym == sdl2.SDLK_r:
+                    ui.cpu.log_regs(log=ui.logger.info)
+                elif event.key.keysym.sym in button_map:
+                    ui.cpu.mmu.press_button(button_map[event.key.keysym.sym])
+            if event.type == sdl2.SDL_KEYUP:
+                if event.key.keysym.sym in button_map:
+                    ui.cpu.mmu.unpress_button(button_map[event.key.keysym.sym])
 
                 # if event.key.keysym.sym == sdl2.SDLK_DOWN:
                 #     scy += 1
@@ -158,6 +186,8 @@ if __name__ == '__main__':
             elif command == 'c':
                 step = False
             elif command == 'q':
+                ui.cpu.log_regs(log=ui.logger.info)
+                ui.cpu.log_op(log=ui.logger.info)
                 running = False
             elif command == 'reg':
                 ui.cpu.log_regs(log=ui.logger.info)
@@ -172,16 +202,19 @@ if __name__ == '__main__':
                     ui.cpu.gpu.logger.setLevel(logging.INFO)
                 elif subc == 'dump':
                     src = line[2]
-                    if src == 'data':
+                    if src == 'vram':
                         bgdata_start = 0x8000 - VRAM_START
-                        for line in hexdump(ui.cpu.gpu.vram[bgdata_start:bgdata_start+0x1800], 16):
+                        for line in hexdump(ui.cpu.gpu.vram[bgdata_start:bgdata_start+0x1800], 16, start=0x8000):
                             print(line)
                     elif src == 'map':
                         bgmap_start = 0x9800 - VRAM_START
-                        for line in hexdump(ui.cpu.gpu.vram[bgmap_start:bgmap_start+0x800], 16, start=VRAM_START):
+                        for line in hexdump(ui.cpu.gpu.vram[bgmap_start:bgmap_start+0x800], 16, start=0x9800):
+                            print(line)
+                    elif src == 'oam':
+                        for line in hexdump(ui.cpu.gpu.oam, 16, start=OAM_START):
                             print(line)
                     else:
-                        raise ValueError('Expected "map" or "data".')
+                        raise ValueError('Expected "map," "vram," or "oam."')
                 elif subc == 'display':
                     src = line[2]
                     import PIL
@@ -191,36 +224,39 @@ if __name__ == '__main__':
                         #img.show()
                         from slowboy.gpu import GBTileset
                         vram = ui.cpu.gpu.vram
-                        tileset = GBTileset(vram[0x8000-VRAM_START:0x8000-VRAM_START+0x1800], (32*8, 12*8), (8, 8))
+                        start = 0x8800-VRAM_START
+                        tileset = GBTileset(vram[start:start+0x1000], (32*8, 8*8), (8, 8))
                         palette = ui.cpu.gpu._bgpalette
-                        img = Image.frombytes("L", (32*8, 12*8), bytes(tileset.to_rgb(palette).data))
+                        img = Image.frombytes("L", (32*8, 8*8), bytes(tileset.to_rgb(palette).data))
                         img.show()
                     elif src == 'map':
                         raise NotImplementedError('display "map"')
                     else:
                         raise ValueError('Expected "map" or "data".')
             elif command == 'regwatch':
-                cmd, arg = line.split(' ')
+                arg = line[1]
                 watched_reg = None if arg == 'None' else arg
-            elif line == 'rominfo':
+            elif command == 'rominfo':
                 ui.cpu.mmu.log_rominfo()
-            elif line == 'debug':
+            elif command == 'debug':
                 logging.getLogger().setLevel(logging.DEBUG)
                 print('set logger to DEBUG')
-            elif line == 'info':
+            elif command  == 'info':
                 logging.getLogger().setLevel(logging.INFO)
                 print('set logger to INFO')
-            elif line == 'flags':
+            elif command == 'flags':
                 print('H: ', ui.cpu.get_carry_flag())
                 print('C: ', ui.cpu.get_halfcarry_flag())
                 print('N: ', ui.cpu.get_sub_flag())
                 print('Z: ', ui.cpu.get_zero_flag())
-            elif line == 'break': # break
-                _, addr = line.split(' ')
-                breakpoint = int(addr, 16)
-                print('set breakpoint at {:#04x}'.format(breakpoint))
-            elif line == 'mem':
-                line = line.split(' ')
+            elif command == 'break': # break
+                addr = line[1]
+                if addr == 'None':
+                    breakpoint = None
+                else:
+                    breakpoint = int(addr, 16)
+                    print('set breakpoint at {:#04x}'.format(breakpoint))
+            elif command == 'mem':
                 start = int(line[1], 16)
                 end = int(line[2], 16) if len(line) > 1 else start+1
                 for addr in range(start, end):

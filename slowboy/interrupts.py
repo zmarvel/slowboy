@@ -37,7 +37,7 @@ class InterruptListener(metaclass=abc.ABCMeta):
 
 
 class InterruptController(InterruptListener):
-    def __init__(self, logger:logging.Logger=None, log_level=logging.DEBUG):
+    def __init__(self, logger:logging.Logger=None, log_level=logging.INFO):
         self.enabled = True
         self._if = 0
         self._ie = 0
@@ -56,7 +56,6 @@ class InterruptController(InterruptListener):
     @if_.setter
     def if_(self, value):
         self.logger.debug('set IF to %#x', value)
-        print('set IF to %#x' % value)
         self._if = value
 
     @property
@@ -66,7 +65,6 @@ class InterruptController(InterruptListener):
     @ie.setter
     def ie(self, value):
         self.logger.debug('set IE to %#x', value)
-        print('set IE to %#x' % value)
         self._ie = value
 
     def ei(self):
@@ -77,7 +75,7 @@ class InterruptController(InterruptListener):
 
     @property
     def has_interrupt(self) -> bool:
-        return (self.if_ & 0x1f) > 0
+        return self.enabled and (self.if_ & 0x1f) > 0
 
     def get_interrupts(self) -> Sequence[InterruptType]:
         for i in range(5):
@@ -93,8 +91,8 @@ class InterruptController(InterruptListener):
         if self.ie & (1 << interrupt.value) == 0:
             # interrupt disabled
             return
-
         self.logger.debug('notified: %s', interrupt)
+
         self.if_ |= 1 << interrupt.value
 
     def acknowledge_interrupt(self, interrupt: InterruptType):

@@ -75,8 +75,13 @@ class GPU(ClockListener):
                                                               32, sdl2.SDL_PIXELFORMAT_RGBA32)
         self._fgsurface = sdl2.SDL_CreateRGBSurfaceWithFormat(0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT,
                                                               32, sdl2.SDL_PIXELFORMAT_RGBA32)
-        self._bgtileset = None  # GBTileset
+        self._bgtileset = None  # sdl2.SDL_Surface
+        self._fgtileset = None  # sdl2.SDL_Surface
+        self._sprite_tiles = None  # sdl2.SDL_Surface
         self._bgpalette = None
+        self._sprite_palette0 = None
+        self._sprite_palette1 = None
+        self._sprite_palette = None
         self._needs_update = False
 
         self._bgp = 0xfc   # BG palette data
@@ -93,9 +98,9 @@ class GPU(ClockListener):
         self._dma = 0
 
         # initialize _palettes
-        self.bgp = 0
-        self.obp0 = 0
-        self.obp1 = 0
+        self.bgp = self._bgp
+        self.obp0 = self._obp0
+        self.obp1 = self._obp1
 
         self.mode = Mode.OAM_READ
         self.stat |= 0x03
@@ -148,11 +153,50 @@ class GPU(ClockListener):
         self._update_vram('bgp')
 
     @property
+    def obp0(self):
+        return self._obp0
+
+    @obp0.setter
+    def obp0(self, value):
+        self._obp0 = value
+        self.logger.debug('set OBP0 to %#x', value)
+        self._sprite_palette0 = [
+            (value & 0x3) * 85,
+            ((value >> 2) & 0x3) * 85,
+            ((value >> 4) & 0x3) * 85,
+            ((value >> 6) & 0x3) * 85,
+        ]
+        self.logger.debug('set _sprite_palette0 to [%#x, %#x, %#x, %#x]',
+                          self._sprite_palette0[0], self._sprite_palette0[1],
+                          self._sprite_palette0[2], self._sprite_palette0[3])
+        self._update_vram('obp0')
+
+    @property
+    def obp1(self):
+        return self._obp1
+
+    @obp1.setter
+    def obp1(self, value):
+        self._obp1 = value
+        self.logger.debug('set OBP1 to %#x', value)
+        self._sprite_palette1 = [
+            (value & 0x3) * 85,
+            ((value >> 2) & 0x3) * 85,
+            ((value >> 4) & 0x3) * 85,
+            ((value >> 6) & 0x3) * 85,
+        ]
+        self.logger.debug('set _sprite_palette0 to [%#x, %#x, %#x, %#x]',
+                          self._sprite_palette1[0], self._sprite_palette1[1],
+                          self._sprite_palette1[2], self._sprite_palette1[3])
+        self._update_vram('obp1')
+
+    @property
     def scx(self):
         return self._scx
 
     @scx.setter
     def scx(self, value):
+        value &= 0xff
         self._scx = value
         self._update_vram('scx')
         self.logger.debug('set SCX to %#x', value)
@@ -163,6 +207,7 @@ class GPU(ClockListener):
 
     @scy.setter
     def scy(self, value):
+        value &= 0xff
         self._scy = value
         self._update_vram('scy')
         self.logger.debug('set SCY to %#x', value)
@@ -230,9 +275,11 @@ class GPU(ClockListener):
             if mode == 0 and interrupts & 0x1:
                 # hblank
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
-            elif mode == 1 and interrupts & 0x2:
+            elif mode == 1:
                 # vblank
-                self.interrupt_controller.notify_interrupt(InterruptType.stat)
+                if interrupts & 0x2:
+                    self.interrupt_controller.notify_interrupt(InterruptType.stat)
+                self.interrupt_controller.notify_interrupt(InterruptType.vblank)
             elif mode == 2 and interrupts & 0x4:
                 # oam read
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
@@ -419,13 +466,13 @@ class GPU(ClockListener):
             if sdl2.SDL_FillRect(surface, dst, color) < 0:
                 raise sdl2.SDL_Error()
 
-        if self.lcdc & LCDC_WINDOW_DISPLAY_ENABLE_MASK:
-            converted = sdl2.SDL_ConvertSurfaceFormat(self._fgsurface, surface.format.contents.format, 0)
-            src = sdl2.SDL_Rect(self.wx, self.wy+7, SCREEN_WIDTH, SCREEN_HEIGHT)
-            dst = sdl2.SDL_Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-            if SDL_BlitSurface(converted, src, surface, dst) < 0:
-                raise sdl2.SDL_Error()
-            sdl2.SDL_FreeSurface(converted)
+        # if self.lcdc & LCDC_WINDOW_DISPLAY_ENABLE_MASK:
+        #     converted = sdl2.SDL_ConvertSurfaceFormat(self._fgsurface, surface.format.contents.format, 0)
+        #     src = sdl2.SDL_Rect(self.wx, self.wy+7, SCREEN_WIDTH, SCREEN_HEIGHT)
+        #     dst = sdl2.SDL_Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+        #     if SDL_BlitSurface(converted, src, surface, dst) < 0:
+        #         raise sdl2.SDL_Error()
+        #     sdl2.SDL_FreeSurface(converted)
 
         self.frame_count += 1
         if self.frame_count >= 60:

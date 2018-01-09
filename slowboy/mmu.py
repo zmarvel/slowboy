@@ -42,6 +42,11 @@ class MMU():
             'a': False,
         }
 
+        self._dma = None
+
+        # Mapping of address to callback
+        self.watchpoints = {}
+
     def load_rom(self, romdata):
         self.rom = romdata
         self.log_rominfo()
@@ -115,6 +120,9 @@ class MMU():
         self.interrupt_controller = interrupt_controller
 
     def get_addr(self, addr):
+        if addr in self.watchpoints:
+            self.watchpoints[addr](addr, None)
+
         if addr < 0:
             # invalid
             raise ValueError('invalid address {:#04x}'.format(addr))
@@ -182,7 +190,7 @@ class MMU():
             elif addr == 0xff45:
                 return self.gpu.lyc
             elif addr == 0xff46:
-                raise NotImplementedError('DMA register')
+                return self.dma
             elif addr == 0xff47:
                 return self.gpu.bgp
             elif addr == 0xff48:
@@ -205,12 +213,15 @@ class MMU():
             # bit 2: timer interrupt
             # bit 3: serial interrupt
             # bit 4: joypad interrupt
-            return self.interrupt_enable
+            return self.interrupt_controller.ie
         else:
             raise ValueError('invalid address {:#04x}'.format(addr))
 
     def set_addr(self, addr, value):
         value = value & 0xff
+
+        if addr in self.watchpoints:
+            self.watchpoints[addr](addr, value)
 
         if addr < 0:
             # invalid
@@ -272,7 +283,7 @@ class MMU():
             elif addr == 0xff45:
                 self.gpu.lyc = value
             elif addr == 0xff46:
-                raise NotImplementedError('DMA register')
+                self.dma = value
             elif addr == 0xff47:
                 self.gpu.bgp = value
             elif addr == 0xff48:
@@ -295,7 +306,7 @@ class MMU():
             # bit 2: timer interrupt
             # bit 3: serial interrupt
             # bit 4: joypad interrupt
-            self.interrupt_enable = value
+            self.interrupt_controller.ie = value
         else:
             raise ValueError('invalid address {:#04x}'.format(hex(addr)))
 
@@ -335,3 +346,14 @@ class MMU():
     def unpress_button(self, button: str):
         print(button, 'UP', hex(self.joyp))
         self._buttons[button] = False
+
+    @property
+    def dma(self):
+        return self._dma
+
+    @dma.setter
+    def dma(self, value):
+        value = value & 0xff
+        self._dma = value
+        for i in range(0xa0):
+            self.gpu.set_oam(i, self.get_addr(value+i))

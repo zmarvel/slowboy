@@ -54,12 +54,13 @@ def twoscompl16(x):
 
 def hexdump(bytes,  line_len, start=0):
     line = []
-    j = start
+    j = 0
     for b in bytes:
         s = '{:02x}'.format(b)
         if j % line_len == 0 and j > 0:
             yield '{:04x}: {}'.format(start+j-line_len, ' '.join(line))
             line = []
+        j += 1
         line.append(s)
     yield '{:04x}: {}'.format(start+j-line_len, ' '.join(line))
 

@@ -13,7 +13,7 @@ addons:
             - "zlib1g"
             - "zlib1g-dev"
 before_script:
-    - "curl -Oo https://www.libsdl.org/release/SDL2-2.0.8.tar.gz"
+    - "curl -sSf -o SDL2-2.0.8.tar.gz https://www.libsdl.org/release/SDL2-2.0.8.tar.gz"
     - "tar xvzf SDL2-2.0.8.tar.gz"
     - "cd SDL2-2.0.8"
     - "./configure"

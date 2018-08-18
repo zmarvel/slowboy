@@ -3,6 +3,8 @@ import logging
 import sdl2
 import sdl2.ext
 import select
+import sys
+import argparse as ap
 
 from slowboy.mmu import MMU
 from slowboy.z80 import Z80
@@ -167,9 +169,11 @@ def command(ui, state):
         print_lines(hexdump(buf, 16, start=start))
     elif command == 'stack':
         start = ui.cpu.sp
-        end = start + int(line[1])
+        n = int(line[1])
+        end = start + n
+        print(hex(start), hex(end))
         buf = bytes(ui.cpu.mmu.get_addr(addr) for addr in range(start, end))
-        print_lines(hexdump(buf, 16, start=start))
+        print_lines(hexdump(buf, min(n, 16), start=start))
 
 
 if __name__ == '__main__':
@@ -178,8 +182,13 @@ if __name__ == '__main__':
     root_logger = logging.getLogger(__name__)
     logging.basicConfig(level=logging.INFO)
 
+    parser = ap.ArgumentParser(description='slowboy SDL interface')
+    parser.add_argument('rom', type=str,
+                        help='GameBoy ROM file path')
+    args = parser.parse_args()
+
     # ui = SDLUI(sys.argv[1], logger=root_logger, log_level=logging.DEBUG)
-    ui = SDLUI(sys.argv[1], log_level=root_logger.level)
+    ui = SDLUI(args.rom, log_level=root_logger.level)
     ui.start()
     state = {
         'running': True,

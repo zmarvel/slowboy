@@ -41,7 +41,7 @@ STAT_HBLANK_IE_MASK = 1 << STAT_HBLANK_IE_OFFSET
 STAT_LYC_FLAG_OFFSET = 2
 STAT_LYC_FLAG_MASK = 1 << STAT_LYC_FLAG_OFFSET
 STAT_MODE_OFFSET = 0
-STAT_MODE_MASK = 1 << STAT_MODE_OFFSET
+STAT_MODE_MASK = 0x03
 
 
 SCREEN_WIDTH = 160
@@ -67,6 +67,8 @@ class GPU(ClockListener):
         if log_level is not None:
             self.logger.setLevel(log_level)
 
+        self.interrupt_controller = interrupt_controller
+
         self.vram = bytearray(0xa000 - 0x8000)   # 0x8000-0x9fff
         self.oam = bytearray(0xfea0 - 0xfe00)    # 0xfe00-0xfe9f
         self._bgsurfaces = []
@@ -91,11 +93,15 @@ class GPU(ClockListener):
         self._stat = 0  # LCD status register
         self._scy = 0   # Scroll y
         self._scx = 0   # Scroll x
-        self._ly = 0    # LCD y-coordinate
-        self._lyc = 0   # LY compare
+        self._ly = 0
+        self._lyc = 0
+        self._mode = Mode.OAM_READ
         self._wy = 0    # Window y position
         self._wx = 0    # Window x position - 7
         self._dma = 0
+
+        self.ly = 0     # LCD y-coordinate
+        self.lyc = 0    # LY compare
 
         # initialize _palettes
         self.bgp = self._bgp
@@ -109,8 +115,6 @@ class GPU(ClockListener):
         self.last_time = time()
         self.frame_count = 0
         self.fps = 0
-
-        self.interrupt_controller = interrupt_controller
 
     def load_interrupt_controller(self, ic: InterruptController):
         self.interrupt_controller = ic
@@ -221,7 +225,8 @@ class GPU(ClockListener):
         if value == self.lyc:
             # LYC interrupt
             self.stat |= 1 << STAT_LYC_FLAG_OFFSET
-            self.interrupt_controller.notify_interrupt(InterruptType.stat)
+            if self.interrupt_controller is not None:
+                self.interrupt_controller.notify_interrupt(InterruptType.stat)
         else:
             self.stat &= 0xff ^ (1 << STAT_LYC_FLAG_OFFSET)
         self._ly = value
@@ -233,6 +238,13 @@ class GPU(ClockListener):
 
     @lyc.setter
     def lyc(self, value):
+        if value == self.ly:
+            # LYC interrupt
+            self.stat |= 1 << STAT_LYC_FLAG_OFFSET
+            if self.interrupt_controller is not None:
+                self.interrupt_controller.notify_interrupt(IterruptType.stat)
+        else:
+            self.stat &= 0xff ^ (1 << STAT_LYC_FLAG_OFFSET)
         self._lyc = value
         self.logger.debug('set LYC to %#x', value)
 
@@ -258,14 +270,20 @@ class GPU(ClockListener):
 
     @property
     def stat(self):
-        return self._stat
+        stat = self._stat & ~(STAT_LYC_FLAG_MASK | STAT_MODE_MASK)
+        if self.ly == self.lyc:
+            stat |= 1 << STAT_LYC_FLAG_OFFSET
+        stat |= self.mode.value << STAT_MODE_OFFSET
+        self._stat = stat
+        return stat
 
     @stat.setter
     def stat(self, value):
         """STAT IO register.
 
-        This setter should be called to update mode, and it will trigger interrupts as necessary. If the LYC flag is
-        set to 1, the corresponding interrupt will also be triggered.
+        This setter should be called to update mode, and it will trigger
+        interrupts as necessary. If the LYC flag is set to 1, the corresponding
+        interrupt will also be triggered.
         """
         interrupts = (value >> 3) & 0xf
         old_mode = self._stat & 0x3
@@ -277,9 +295,10 @@ class GPU(ClockListener):
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
             elif mode == 1:
                 # vblank
-                if interrupts & 0x2:
-                    self.interrupt_controller.notify_interrupt(InterruptType.stat)
-                self.interrupt_controller.notify_interrupt(InterruptType.vblank)
+                if self.interrupt_controller is not None:
+                    if interrupts & 0x2:
+                        self.interrupt_controller.notify_interrupt(InterruptType.stat)
+                    self.interrupt_controller.notify_interrupt(InterruptType.vblank)
             elif mode == 2 and interrupts & 0x4:
                 # oam read
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
@@ -293,10 +312,29 @@ class GPU(ClockListener):
                 # ly coincidence
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
         else:
-            value &= 0xff ^ STAT_LYC_FLAG_MASK
+            value &= ~STAT_LYC_FLAG_MASK
 
         self._stat = value
         self.logger.debug('set STAT to %#x', value)
+
+    @property
+    def mode(self):
+        return self._mode
+
+    @mode.setter
+    def mode(self, value):
+        stat = self.stat 
+        if value == Mode.OAM_READ and stat & STAT_OAM_IE_MASK and \
+           self.interrupt_controller is not None:
+            self.interrupt_controller.notify_interrupt(InterruptType.stat)
+        elif value == Mode.V_BLANK and stat & STAT_VBLANK_IE_MASK and \
+                self.interrupt_controller is not None:
+            self.interrupt_controller.notify_interrupt(InterruptType.stat)
+        elif value == Mode.H_BLANK and stat & STAT_HBLANK_IE_MASK and \
+                self.interrupt_controller is not None:
+            self.interrupt_controller.notify_interrupt(InterruptType.stat)
+        self._mode = value
+        self.stat = stat 
 
     @property
     def dma(self):
@@ -491,6 +529,8 @@ class GPU(ClockListener):
         #self.renderer.present()
 
     def notify(self, clock, cycles):
+        self.mode_clock += cycles
+
         if self.mode == Mode.OAM_READ:
             if self.mode_clock >= 80:
                 self.mode = Mode.OAM_VRAM_READ # 3
@@ -526,8 +566,6 @@ class GPU(ClockListener):
                 self.ly = 0
         else:
             raise ValueError('Invalid GPU mode')
-
-        self.mode_clock += cycles
 
     def get_vram(self, addr):
         return self.vram[addr]

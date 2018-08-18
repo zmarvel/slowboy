@@ -51,6 +51,13 @@ BACKGROUND_HEIGHT = 256
 BACKGROUND_SIZE = (BACKGROUND_WIDTH, BACKGROUND_HEIGHT)
 
 
+def colorto8bit(c):
+    if c > 3:
+        raise ValueError
+
+    return (c ^ 0x3) * 0x55
+
+
 class Mode(Enum):
     H_BLANK = 0
     V_BLANK = 1
@@ -147,10 +154,10 @@ class GPU(ClockListener):
         self._bgp = value
         self.logger.debug('set BGP to %#x', value)
         self._bgpalette = [
-            (value & 0x3) * 85,
-            ((value >> 2) & 0x3) * 85,
-            ((value >> 4) & 0x3) * 85,
-            ((value >> 6) & 0x3) * 85,
+            colorto8bit(value & 0x3),
+            colorto8bit((value >> 2) & 0x3),
+            colorto8bit((value >> 4) & 0x3),
+            colorto8bit((value >> 6) & 0x3),
         ]
         self.logger.debug('set _bgpalette to [%#x, %#x, %#x, %#x]',
                           self._bgpalette[0], self._bgpalette[1], self._bgpalette[2], self._bgpalette[3])
@@ -164,15 +171,17 @@ class GPU(ClockListener):
     def obp0(self, value):
         self._obp0 = value
         self.logger.debug('set OBP0 to %#x', value)
+        # lower 2 bits aren't used for object palette (color 0 indicates
+        # transparent)
         self._sprite_palette0 = [
-            (value & 0x3) * 85,
-            ((value >> 2) & 0x3) * 85,
-            ((value >> 4) & 0x3) * 85,
-            ((value >> 6) & 0x3) * 85,
+            0xff,
+            colorto8bit((value >> 2) & 0x3),
+            colorto8bit((value >> 4) & 0x3),
+            colorto8bit((value >> 6) & 0x3),
         ]
-        self.logger.debug('set _sprite_palette0 to [%#x, %#x, %#x, %#x]',
-                          self._sprite_palette0[0], self._sprite_palette0[1],
-                          self._sprite_palette0[2], self._sprite_palette0[3])
+        self.logger.debug('set _sprite_palette0 to [%#x, %#x, %#x]',
+                          self._sprite_palette0[1], self._sprite_palette0[2],
+                          self._sprite_palette0[3])
         self._update_vram('obp0')
 
     @property
@@ -183,15 +192,17 @@ class GPU(ClockListener):
     def obp1(self, value):
         self._obp1 = value
         self.logger.debug('set OBP1 to %#x', value)
+        # lower 2 bits aren't used for object palette (color 0 indicates
+        # transparent)
         self._sprite_palette1 = [
-            (value & 0x3) * 85,
-            ((value >> 2) & 0x3) * 85,
-            ((value >> 4) & 0x3) * 85,
-            ((value >> 6) & 0x3) * 85,
+            0xff,
+            colorto8bit((value >> 2) & 0x3),
+            colorto8bit((value >> 4) & 0x3),
+            colorto8bit((value >> 6) & 0x3),
         ]
-        self.logger.debug('set _sprite_palette0 to [%#x, %#x, %#x, %#x]',
-                          self._sprite_palette1[0], self._sprite_palette1[1],
-                          self._sprite_palette1[2], self._sprite_palette1[3])
+        self.logger.debug('set _sprite_palette0 to [%#x, %#x, %#x]',
+                          self._sprite_palette1[1], self._sprite_palette1[2],
+                          self._sprite_palette1[3])
         self._update_vram('obp1')
 
     @property

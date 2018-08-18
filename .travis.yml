@@ -22,4 +22,4 @@ before_script:
 install:
     - "dd if=/dev/zero of=blank_rom.gb bs=1k count=32"
     - "pip install ."
-script: "python3 -m unittest discover tests"
+script: "python -m unittest discover tests"

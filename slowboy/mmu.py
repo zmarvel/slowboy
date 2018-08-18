@@ -28,8 +28,6 @@ class MMU():
         self.sprite_table = bytearray(160)
         self.hram = bytearray(127)
 
-        self.interrupt_enable = 0
-
         self._joyp = 0
         self._buttons = {
             'down': False,
@@ -50,6 +48,10 @@ class MMU():
     def load_rom(self, romdata):
         self.rom = romdata
         self.log_rominfo()
+
+    def load_rom_from_file(self, romfile):
+        with open(romfile, 'rb') as f:
+            self.load_rom(f.read())
 
     def log_rominfo(self):
         log = self.logger.info
@@ -213,7 +215,12 @@ class MMU():
             # bit 2: timer interrupt
             # bit 3: serial interrupt
             # bit 4: joypad interrupt
-            return self.interrupt_controller.ie
+            if self.interrupt_controller is not None:
+                return self.interrupt_controller.ie
+            else:
+                self.logger.warning('read from interrupt controller when there is '
+                               'not one loaded')
+                return 0
         else:
             raise ValueError('invalid address {:#04x}'.format(addr))
 
@@ -306,7 +313,11 @@ class MMU():
             # bit 2: timer interrupt
             # bit 3: serial interrupt
             # bit 4: joypad interrupt
-            self.interrupt_controller.ie = value
+            if self.interrupt_controller is not None:
+                self.interrupt_controller.ie = value
+            else:
+                self.logger.warning('write to interrupt controller when there '
+                                    'is not one loaded')
         else:
             raise ValueError('invalid address {:#04x}'.format(hex(addr)))
 

@@ -3,17 +3,37 @@
 import unittest
 
 import slowboy.mmu
+import slowboy.gpu
+import slowboy.interrupts
+
+class MockInterruptController(slowboy.interrupts.InterruptListener):
+    def __init__(self):
+        self.ie = 0
+        self.last_interrupt = None
+
+    def notify_interrupt(self, interrupt):
+        self.last_interrupt = interrupt
+
+    def acknowledge_interrupt(self, interrupt):
+        pass
+
 
 class TestMMU(unittest.TestCase):
     def setUp(self):
         self.mmu = slowboy.mmu.MMU()
         self.rom_filename = 'blank_rom.gb'
-        self.mmu.load_rom(self.rom_filename)
+        self.mmu.load_rom_from_file(self.rom_filename)
+
+        self.mmu.load_gpu(slowboy.gpu.GPU())
+        self.mmu.load_interrupt_controller(MockInterruptController())
 
     def test_load_rom(self):
         self.mmu.unload_rom()
 
-        self.mmu.load_rom(self.rom_filename)
+        with open(self.rom_filename, 'rb') as f:
+            romdata = f.read()
+
+            self.mmu.load_rom(romdata)
 
         with open(self.rom_filename, 'rb') as f:
             rom = f.read()
@@ -21,11 +41,13 @@ class TestMMU(unittest.TestCase):
             for addr, byte in enumerate(rom):
                 self.assertEqual(byte, self.mmu.get_addr(addr))
 
+        self.assertEqual(len(self.mmu.rom), 32*1024)
+
     def test_load_rom_bad(self):
         self.mmu.unload_rom()
 
         with self.assertRaises(FileNotFoundError) as cm:
-            self.mmu.load_rom('bad_filename.gb')
+            self.mmu.load_rom_from_file('bad_filename.gb')
 
     def test_get_addr(self):
         pass
@@ -35,6 +57,7 @@ class TestMMU(unittest.TestCase):
             self.mmu.set_addr(-1, 255)
 
     def test_set_addr_bad_2(self):
+        self.skipTest('writes to invalid memory no longer raise ValueError')
         for x in range(0xfea0, 0xff00):
             with self.assertRaises(ValueError) as cm:
                 self.mmu.set_addr(x, 255)
@@ -44,6 +67,7 @@ class TestMMU(unittest.TestCase):
             self.mmu.set_addr(0x10000, 255)
 
     def test_set_addr_rom(self):
+        self.skipTest('writes to invalid memory no longer raise ValueError')
         for x in range(0x4000):
             with self.assertRaises(ValueError) as cm:
                 self.mmu.set_addr(x, x**2)
@@ -55,12 +79,12 @@ class TestMMU(unittest.TestCase):
     def test_set_addr_vram(self):
         for x in range(0x8000, 0xa000):
             self.mmu.set_addr(x, x**2)
-            self.assertEqual(self.mmu.get_addr(x), self.mmu.vram[x - 0x8000])
+            self.assertEqual(self.mmu.get_addr(x), self.mmu.gpu.vram[x - 0x8000])
             self.assertEqual(self.mmu.get_addr(x), x**2 % 256)
 
         for x in range(0x8000, 0xa000):
             self.mmu.set_addr(x, 0)
-            self.assertEqual(self.mmu.get_addr(x), self.mmu.vram[x - 0x8000])
+            self.assertEqual(self.mmu.get_addr(x), self.mmu.gpu.vram[x - 0x8000])
             self.assertEqual(self.mmu.get_addr(x), 0)
     
     def test_set_addr_cartridge_ram(self):
@@ -101,16 +125,17 @@ class TestMMU(unittest.TestCase):
     def test_set_addr_sprite_table(self):
         for x in range(0xfe00, 0xfea0):
             self.mmu.set_addr(x, x**2)
-            self.assertEqual(self.mmu.get_addr(x), self.mmu.vram[x - 0xfe00])
+            self.assertEqual(self.mmu.get_addr(x), self.mmu.gpu.oam[x - 0xfe00])
             self.assertEqual(self.mmu.get_addr(x), x**2 % 256)
 
         for x in range(0xfe00, 0xfea0):
             self.mmu.set_addr(x, 0)
-            self.assertEqual(self.mmu.get_addr(x), self.mmu.vram[x - 0xfe00])
+            self.assertEqual(self.mmu.get_addr(x), self.mmu.gpu.oam[x - 0xfe00])
             self.assertEqual(self.mmu.get_addr(x), 0)
 
     def test_set_addr_io(self):
-        raise NotImplementedError('memory-mapped IO tests')
+        # TODO
+        self.fail('not implemented: memory-mapped IO tests')
 
     def test_set_addr_hram(self):
         for x in range(0xff80, 0xffff):
@@ -125,5 +150,6 @@ class TestMMU(unittest.TestCase):
 
     def test_set_addr_interrupt_enable_register(self):
         self.mmu.set_addr(0xffff, 255)
-        self.assertEqual(self.mmu.get_addr(0xffff), self.mmu.interrupt_enable)
+        self.assertEqual(self.mmu.get_addr(0xffff),
+                         self.mmu.interrupt_controller.ie)
         self.assertEqual(self.mmu.get_addr(0xffff), 255)

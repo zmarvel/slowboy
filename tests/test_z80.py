@@ -529,7 +529,7 @@ class TestZ80ALU(unittest.TestCase):
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
         self.assertEqual(self.cpu.get_zero_flag(), 1)
-        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
@@ -551,7 +551,7 @@ class TestZ80ALU(unittest.TestCase):
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
         self.assertEqual(self.cpu.get_zero_flag(), 1)
-        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
@@ -566,19 +566,6 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 
-    def test_and_imm16addr(self):
-        self.cpu.mmu.rom = bytes([0x00, 0xc0])
-
-        self.cpu.set_reg8('a', 0xaa)
-        self.cpu.mmu.set_addr(0xc000, 0x55)
-        self.cpu.and_imm16addr()()
-
-        self.assertEqual(self.cpu.get_reg8('a'), 0x00)
-        self.assertEqual(self.cpu.get_zero_flag(), 1)
-        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
-        self.assertEqual(self.cpu.get_sub_flag(), 0)
-        self.assertEqual(self.cpu.get_carry_flag(), 0)
-
     def test_and_reg16addr(self):
         addr16 = 0xc000
 
@@ -589,7 +576,7 @@ class TestZ80ALU(unittest.TestCase):
 
         self.assertEqual(self.cpu.get_reg8('a'), 0x00)
         self.assertEqual(self.cpu.get_zero_flag(), 1)
-        self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
         self.assertEqual(self.cpu.get_sub_flag(), 0)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
 

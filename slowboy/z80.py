@@ -1662,31 +1662,6 @@ class Z80(object):
             self.reset_carry_flag()
         return band
 
-    def and_imm16addr(self):
-        """Returns a function that performs a bitwise AND with the 8-bit value
-        at the address given as an argument to the function and the accumulator
-        register A.
-
-        :rtype: int → None"""
-
-        def band():
-            imm16 = self.fetch2()
-            self.logger.debug('and (%#x)', imm16)
-            x = self.get_reg8('a')
-            y = self.mmu.get_addr(imm16)
-            result = x & y
-            self.set_reg8('a', result)
-
-            if result == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            self.set_halfcarry_flag()
-            self.reset_sub_flag()
-            self.reset_carry_flag()
-        return band
-
     def and_reg16addr(self, reg16):
         """Returns a function that performs a bitwise AND with the 8-bit value
         at the address in the given double register and the accumulator

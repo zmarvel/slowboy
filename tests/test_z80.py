@@ -1137,6 +1137,7 @@ class TestZ80Control(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
+        self.cpu.reset_zero_flag()
         self.cpu.ret(cond='z')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
@@ -1155,6 +1156,7 @@ class TestZ80Control(unittest.TestCase):
         self.cpu.mmu.set_addr(0xd000, 0x00)
         self.cpu.mmu.set_addr(0xd001, 0xc0)
 
+        self.cpu.reset_carry_flag()
         self.cpu.ret(cond='c')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1234)
@@ -1167,7 +1169,7 @@ class TestZ80Control(unittest.TestCase):
         self.assertEqual(self.cpu.sp, 0xd002)
 
     def test_reti(self):
-        raise NotImplementedError('test_reti')
+        self.fail('not implemented: test_reti')
 
     def test_call_imm16addr(self):
         self.cpu.pc = 0x1234
@@ -1194,6 +1196,7 @@ class TestZ80Control(unittest.TestCase):
         rom[0x1237] = 0x20
         self.cpu.mmu.rom = bytes(rom)
 
+        self.cpu.reset_zero_flag()
         self.cpu.call_imm16addr('z')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1236)
@@ -1202,7 +1205,6 @@ class TestZ80Control(unittest.TestCase):
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.sp), 0x00)
 
         self.cpu.set_zero_flag()
-
         self.cpu.call_imm16addr('z')()
 
         self.assertEqual(self.cpu.get_pc(), 0x2000)
@@ -1220,6 +1222,7 @@ class TestZ80Control(unittest.TestCase):
         rom[0x1237] = 0x20
         self.cpu.mmu.rom = bytes(rom)
 
+        self.cpu.reset_carry_flag()
         self.cpu.call_imm16addr('c')()
 
         self.assertEqual(self.cpu.get_pc(), 0x1236)
@@ -1228,7 +1231,6 @@ class TestZ80Control(unittest.TestCase):
         self.assertEqual(self.cpu.mmu.get_addr(self.cpu.sp), 0x00)
 
         self.cpu.set_carry_flag()
-
         self.cpu.call_imm16addr('c')()
 
         self.assertEqual(self.cpu.get_pc(), 0x2000)

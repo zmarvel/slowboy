@@ -367,10 +367,15 @@ class TestZ80ALU(unittest.TestCase):
         self.cpu.set_reg16('bc', 0xeeff)
         self.cpu.inc_reg16('bc')()
 
+        c = self.cpu.get_carry_flag()
+        h = self.cpu.get_halfcarry_flag()
+        s = self.cpu.get_sub_flag()
+        z = self.cpu.get_zero_flag()
         self.assertEqual(self.cpu.get_reg16('bc'), 0xef00)
-        self.assertEqual(self.cpu.get_zero_flag(), 0)
-        self.assertEqual(self.cpu.get_halfcarry_flag(), 1)
-        self.assertEqual(self.cpu.get_sub_flag(), 0)
+        self.assertEqual(self.cpu.get_carry_flag(), c)
+        self.assertEqual(self.cpu.get_halfcarry_flag(), h)
+        self.assertEqual(self.cpu.get_sub_flag(), s)
+        self.assertEqual(self.cpu.get_zero_flag(), z)
 
     def test_dec_reg8(self):
         self.cpu.set_reg8('b', 0x04)
@@ -455,6 +460,7 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('c'), 0x11)
         self.assertEqual(self.cpu.get_reg8('b'), 0xee)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
+        self.assertEqual(self.cpu.get_sub_flag(), 1)
 
         self.cpu.set_reg8('b', 0x00)
         self.cpu.set_reg8('c', 0x01)
@@ -462,6 +468,7 @@ class TestZ80ALU(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg8('c'), 0x01)
         self.assertEqual(self.cpu.get_reg8('b'), 0xff)
         self.assertEqual(self.cpu.get_carry_flag(), 1)
+        self.assertEqual(self.cpu.get_sub_flag(), 1)
 
     def test_sub_reg8fromreg8_2(self):
         """Example from the Gameboy Programming Manual"""
@@ -968,9 +975,28 @@ class TestZ80ALU(unittest.TestCase):
     def test_daa(self):
         # 28 = 0x1c
         self.cpu.set_reg8('a', 28)
+        self.cpu.reset_carry_flag()
+        self.cpu.reset_halfcarry_flag()
+        self.cpu.reset_sub_flag()
         self.cpu.daa()
 
-        self.assertEqual(self.cpu.get_reg8('a'), 0x28)
+        self.assertEqual(self.cpu.get_reg8('a'), 34)
+
+    def test_daa_2(self):
+        # Example from the Gameboy Programming Manual
+        self.cpu.reset_halfcarry_flag()
+        self.cpu.reset_carry_flag()
+        self.cpu.set_reg8('a', 0x45)
+        self.cpu.set_reg8('b', 0x38)
+        self.cpu.add_reg8toreg8('b', 'a')() # 0x7d, c=0, h=0
+        self.cpu.daa()
+        self.assertEqual(self.cpu.get_reg8('a'), 0x83)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
+
+        self.cpu.sub_reg8fromreg8('b', 'a')()
+        self.cpu.daa()
+        self.assertEqual(self.cpu.get_reg8('a'), 0x45)
+        self.assertEqual(self.cpu.get_carry_flag(), 0)
 
     def test_scf(self):
         self.cpu.reset_carry_flag()

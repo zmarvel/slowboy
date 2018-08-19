@@ -1474,7 +1474,7 @@ class Z80(object):
             else:
                 self.reset_zero_flag()
 
-            if dest_u8 & 0x0f > src_u8 & 0x0f:
+            if src_u8 & 0x0f > dest_u8 & 0x0f:
                 self.set_halfcarry_flag()
             else:
                 self.reset_halfcarry_flag()
@@ -2525,48 +2525,64 @@ class Z80(object):
 
         hi = reg >> 4
         lo = reg & 0xf
+        c = self.get_carry_flag()
+        h = self.get_halfcarry_flag()
+        print(hi, lo, c, h)
 
         if self.get_sub_flag() == 0:
-            if self.get_carry_flag() == 0 and hi <= 0x9 and self.set_halfcarry_flag() == 0 and lo < 0xa:
+            if c == 0 and hi <= 0x9 \
+               and h == 0 and lo < 0xa:
                 result = reg
                 self.reset_carry_flag()
-            elif self.get_carry_flag() == 0 and hi <= 0x9 and self.get_halfcarry_flag() == 0 and 0xa <= lo <= 0xf:
+            elif c == 0 and hi <= 0x8 \
+                    and h == 0 and 0xa <= lo <= 0xf:
                 result = reg+0x06
                 self.reset_carry_flag()
-            elif self.get_carry_flag() and hi <= 0x9 and self.get_halfcarry_flag() == 1 and lo <= 0x3:
+            elif c == 0 and hi <= 0x9 \
+                    and h == 1 and lo <= 0x3:
                 result = reg+0x06
                 self.reset_carry_flag()
-            elif self.get_carry_flag() == 0 and 0xa <= hi <= 0xf and self.get_halfcarry_flag() == 0 and lo <= 0x9:
+            elif c == 0 and 0xa <= hi <= 0xf \
+                    and h == 0 and lo <= 0x9:
                 result = reg+0x60
                 self.set_carry_flag()
-            elif self.get_carry_flag() == 0 and 0x9 <= hi <= 0xf and self.get_halfcarry_flag() == 0 and 0xa <= lo <= 0xf:
+            elif c == 0 and 0x9 <= hi <= 0xf \
+                    and h == 0 and 0xa <= lo <= 0xf:
                 result = reg+0x66
                 self.set_carry_flag()
-            elif self.get_carry_flag() == 0 and 0xa <= hi <= 0xf and self.get_halfcarry_flag() == 1 and lo <= 0x3:
+            elif c == 0 and 0xa <= hi <= 0xf \
+                    and h == 1 and lo <= 0x3:
                 result = reg+0x66
                 self.set_carry_flag()
-            elif self.get_carry_flag() == 1 and hi <= 0x2 and self.get_halfcarry_flag() == 0 and lo <= 0x9:
+            elif c == 1 and hi <= 0x2 \
+                    and h == 0 and lo <= 0x9:
                 result = reg+0x66
                 self.set_carry_flag()
-            elif self.get_carry_flag() == 1 and hi <= 0x2 and self.get_halfcarry_flag() == 0 and 0xa <= lo <= 0xf:
+            elif c == 1 and hi <= 0x2 \
+                    and h == 0 and 0xa <= lo <= 0xf:
                 result = reg+0x66
                 self.set_carry_flag()
-            elif self.get_carry_flag() == 1 and hi <= 0x3 and self.get_halfcarry_flag() == 1 and lo <= 0x3:
+            elif c == 1 and hi <= 0x3 \
+                    and h == 1 and lo <= 0x3:
                 result = reg+0x66
                 self.set_carry_flag()
             else:
                 raise ValueError('unrecognized condition')
         else:
-            if self.get_carry_flag() == 0 and hi <= 0x9 and self.get_halfcarry_flag() == 0 and lo <= 0x9:
+            if c == 0 and hi <= 0x9 \
+               and h == 0 and lo <= 0x9:
                 self.reset_carry_flag()
                 result = reg
-            elif self.get_carry_flag() == 0 and hi <= 0x8 and self.get_halfcarry_flag() == 1 and 0x6 <= lo <= 0x9:
+            elif c == 0 and hi <= 0x8 \
+                    and h == 1 and 0x6 <= lo <= 0xf:
                 self.reset_carry_flag()
                 result = reg+0xfa
-            elif self.get_carry_flag() == 1 and 0x7 <= hi <= 0xf and self.get_halfcarry_flag() == 0 and lo <= 0x9:
+            elif c == 1 and 0x7 <= hi <= 0xf \
+                    and h == 0 and lo <= 0x9:
                 self.set_carry_flag()
                 result = reg+0xa0
-            elif self.get_carry_flag() == 1 and 0x6 <= hi <= 0xf and self.get_halfcarry_flag() == 1 and 0x6 <= lo <= 0x9:
+            elif c == 1 and 0x6 <= hi <= 0xf \
+                    and h == 1 and 0x6 <= lo <= 0xf:
                 self.set_carry_flag()
                 result = reg+0x9a
             else:

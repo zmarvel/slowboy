@@ -7,7 +7,7 @@ import sys
 import argparse as ap
 
 from slowboy.mmu import MMU
-from slowboy.z80 import Z80
+from slowboy.z80 import Z80, State
 from slowboy.gpu import SCREEN_WIDTH, SCREEN_HEIGHT, VRAM_START, OAM_START, BACKGROUND_SIZE
 from slowboy.util import hexdump, print_lines
 
@@ -46,6 +46,7 @@ class SDLUI():
 
     def start(self):
         # self.cpu.go()
+        self.cpu.state = State.RUN
         pass
 
     def step(self):
@@ -55,6 +56,7 @@ class SDLUI():
     def present(self, surface):
         if self.cpu.gpu.draw(surface):
             self.window.refresh()
+
         self.cpu.gpu.present()
 
 def command(ui, state):
@@ -185,6 +187,10 @@ if __name__ == '__main__':
     parser = ap.ArgumentParser(description='slowboy SDL interface')
     parser.add_argument('rom', type=str,
                         help='GameBoy ROM file path')
+    parser.add_argument('-d', '--debug', action='store_true',
+                        help='Start the emulator in debug mode.')
+    parser.add_argument('-v', '--verbose', action='store_true',
+                        help='Enable verbose logging')
     args = parser.parse_args()
 
     # ui = SDLUI(sys.argv[1], logger=root_logger, log_level=logging.DEBUG)
@@ -192,9 +198,13 @@ if __name__ == '__main__':
     ui.start()
     state = {
         'running': True,
-        'step': True,
+        'step': args.debug,
         'breakpoints': {},
     }
+
+    if args.verbose:
+        root_logger.setLevel(logging.DEBUG)
+        ui.cpu.logger.setLevel(logging.DEBUG)
 
     button_map = {
         sdl2.SDLK_DOWN: 'down',

@@ -128,3 +128,58 @@ class TestGPU(unittest.TestCase):
         self.gpu.mode = slowboy.gpu.Mode.V_BLANK
         self.assertEqual(self.interrupt_controller.last_interrupt,
                          slowboy.interrupts.InterruptType.stat) 
+
+    def test__update_vram(self):
+        # TODO
+        self.fail('Not implemented: test__update_vram')
+
+    def test_colorto8bit(self):
+        self.assertRaises(ValueError, slowboy.gpu.colorto8bit, 4)
+
+        self.assertEqual(slowboy.gpu.colorto8bit(0), 0xff)
+        self.assertEqual(slowboy.gpu.colorto8bit(1), 0xaa)
+        self.assertEqual(slowboy.gpu.colorto8bit(2), 0x55)
+        self.assertEqual(slowboy.gpu.colorto8bit(3), 0x00)
+
+    def test_bgp(self):
+        # 11 11 11 00
+        self.assertEqual(self.gpu.bgp, 0xfc)
+        self.assertEqual(self.gpu._bgpalette, [0xff, 0x00, 0x00, 0x00])
+
+        # 00 01 10 11
+        self.gpu.bgp = 0x1b
+        self.assertEqual(self.gpu.bgp, 0x1b)
+        self.assertEqual(self.gpu._bgpalette, [0x00, 0x55, 0xaa, 0xff])
+
+    def test_obp(self):
+        self.assertEqual(self.gpu.obp0, 0xff)
+        self.assertEqual(self.gpu._sprite_palette0, [0xff, 0x00, 0x00, 0x00])
+        self.assertEqual(self.gpu.obp1, 0xff)
+        self.assertEqual(self.gpu._sprite_palette1, [0xff, 0x00, 0x00, 0x00])
+
+        # 00 01 10 11
+        self.gpu.obp0 = 0x1b
+        self.assertEqual(self.gpu.obp0, 0x1b)
+        self.assertEqual(self.gpu._sprite_palette0, [0xff, 0x55, 0xaa, 0xff])
+        # 11 10 01 00
+        self.gpu.obp1 = 0xe4
+        self.assertEqual(self.gpu.obp1, 0xe4)
+        self.assertEqual(self.gpu._sprite_palette1, [0xff, 0xaa, 0x55, 0x00])
+
+    def test_ly_lyc(self):
+        self.assertEqual(self.gpu.ly, 0)
+
+        # Changing LYC so that LYC != LY should clear STAT LYC flag
+        self.gpu.lyc = 5
+        self.assertEqual(self.gpu.stat & slowboy.gpu.STAT_LYC_FLAG_MASK, 0)
+        # Make LY = LYC -- STAT LYC flag should be set
+        self.gpu.ly = 5
+        self.assertEqual(self.gpu.stat & slowboy.gpu.STAT_LYC_FLAG_MASK,
+                         slowboy.gpu.STAT_LYC_FLAG_MASK)
+        # Changing LY so that LYC != LY should *also* clear STAT LYC flag
+        self.gpu.ly = 6
+        self.assertEqual(self.gpu.stat & slowboy.gpu.STAT_LYC_FLAG_MASK, 0)
+        # Make LYC = LY -- should also set STAT LYC flag
+        self.gpu.lyc = 6
+        self.assertEqual(self.gpu.stat & slowboy.gpu.STAT_LYC_FLAG_MASK,
+                         slowboy.gpu.STAT_LYC_FLAG_MASK)

@@ -10,8 +10,7 @@ from sdl2 import (
 )
 
 def ltorgba(c, alpha=0xff):
-    assert c < 256
-    return int(Color(c, c, c, alpha))
+    return (c << 24) | (c << 16) | (c << 8) | alpha
 
 def rgbafrom2bit(c, alpha=0xff):
     assert c < 4

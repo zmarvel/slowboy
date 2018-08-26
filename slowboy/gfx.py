@@ -1,4 +1,4 @@
-from typing import List, Iterable, Sequence
+from typing import List, Iterable, Sequence, ByteString
 
 import sdl2
 from sdl2.ext import Color
@@ -90,6 +90,24 @@ def decode_2bit(iterable: Iterable[int], palette: Sequence[Color]) \
                 yield color
     except StopIteration:
         raise StopIteration()
+
+
+def decode_tile(tile: ByteString, palette: Sequence[Color]) -> ByteString:
+    """Decode a 2-bit tile to 8-bit grayscale.
+
+    :param tile: 16-byte encoded 2-bit tile data.
+    :param palette: List of colors to decode the tile.
+    :returns: A 64-byte decoded tile.
+    """
+    decoded = bytearray(64)
+    for i in range(0, len(tile), 2):
+        hi = tile[i]
+        lo = tile[i+1]
+        for j in range(8):
+            c = (lo >> (7-j)) & 1
+            c |= ((hi >> (7-j)) & 1) << 1
+            decoded[i*4+j] = palette[c]
+    return decoded
 
 
 class RGBTileset():

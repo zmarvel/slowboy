@@ -40,7 +40,7 @@ class SDLUI():
             rom = f.read()
         self.cpu = Z80(rom=rom, log_level=log_level)
 
-        self.window = sdl2.ext.Window('slowboy', (SCREEN_WIDTH+32, SCREEN_HEIGHT+32))
+        self.window = sdl2.ext.Window('slowboy', (SCREEN_WIDTH, SCREEN_HEIGHT))
         self.window.show()
         self.surface = self.window.get_surface()
 

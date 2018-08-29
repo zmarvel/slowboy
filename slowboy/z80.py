@@ -1,4 +1,7 @@
 
+
+
+
 from enum import Enum
 import logging
 from collections import defaultdict
@@ -702,6 +705,9 @@ class Z80(object):
         reg16 = reg16.lower()
         if reg16 == 'sp':
             self.sp = value
+        elif reg16 == 'af':
+            hi = (value >> 8) & 0xff
+            self.registers['a'] = hi
         else:
             hi = (value >> 8) & 0xff
             lo = value & 0xff
@@ -723,7 +729,6 @@ class Z80(object):
 
     @sp.setter
     def sp(self, u16):
-        self.logger.debug('set SP to %#x', u16)
         self._sp = u16 & 0xffff
 
     def inc_sp(self):
@@ -736,7 +741,6 @@ class Z80(object):
     @pc.setter
     def pc(self, value):
         value = value & 0xffff
-        self.logger.debug('set PC to %#x', value)
         self._pc = value
 
     def inc_pc(self):
@@ -796,6 +800,12 @@ class Z80(object):
         return value
 
     def step(self):
+        if self.state != State.RUN:
+            if self.interrupt_controller.has_interrupt:
+                self.state = State.RUN
+            else:
+                return
+
         if self.interrupt_controller.has_interrupt:
             interrupt = self.interrupt_controller.get_interrupt()
             self._saved_pc = self.pc
@@ -813,13 +823,16 @@ class Z80(object):
         else:
             op = self.opcode_map[opcode]
         self.op = op
-        self.log_regs()
-        self.log_op()
+
+        #self.log_regs()
+        #self.log_op()
 
         if op is None:
             raise ValueError('op {:#x} is None'.format(opcode))
+
         if op.function is None:
             raise ValueError('op.function for {} is None'.format(op))
+
         # execute
         try:
             op.function()
@@ -836,7 +849,6 @@ class Z80(object):
     def go(self):
         self.state = State.RUN
         while self.state == State.RUN:
-            self.logger.debug(self)
             opcode = self.fetch()
             print(self.opcode_map[opcode])
 
@@ -854,19 +866,16 @@ class Z80(object):
     def nop(self):
         """0x00"""
 
-        self.logger.debug('nop')
         pass
 
     def stop(self):
         """0x10"""
 
-        self.logger.debug('stop')
         self.state = State.STOP
 
     def halt(self):
         """0x76"""
 
-        self.logger.debug('halt')
         self.state = State.HALT
 
     def ld_imm8toreg8(self, reg8):
@@ -877,7 +886,6 @@ class Z80(object):
 
         def ld():
             imm8 = self.fetch()
-            self.logger.debug('ld %s, %#x', reg8, imm8)
             self.set_reg8(reg8, imm8)
         return ld
 
@@ -889,7 +897,6 @@ class Z80(object):
         :rtype: None → None """
 
         def ld():
-            self.logger.debug('ld %s, %s', dest_reg8, src_reg8)
             self.set_reg8(dest_reg8, self.get_reg8(src_reg8))
         return ld
 
@@ -901,7 +908,6 @@ class Z80(object):
 
         def ld():
             imm16 = self.fetch2()
-            self.logger.debug('ld %s, %#x', reg16, imm16)
             self.set_reg16(reg16, imm16)
         return ld
 
@@ -914,7 +920,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def ld():
-            self.logger.debug('ld (%s), %s', reg16, reg8)
             self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
         return ld
 
@@ -928,7 +933,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def ld():
-            self.logger.debug('ldi (%s), %s', reg16, reg8)
             self.mmu.set_addr(self.get_reg16(reg16), self.get_reg8(reg8))
             self.set_reg16(reg16, self.get_reg16(reg16) + 1)
         return ld
@@ -943,7 +947,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def ld():
-            self.logger.debug('ldd (%s), %s', reg16, reg8)
             addr = self.get_reg16(reg16)
             self.mmu.set_addr(addr, self.get_reg8(reg8))
             self.set_reg16(reg16, addr + 0xffff)
@@ -958,7 +961,6 @@ class Z80(object):
 
         def ld():
             imm16 = self.fetch2()
-            self.logger.debug('ld (%#x), %s', imm16, reg8)
             self.mmu.set_addr(imm16, self.get_reg8(reg8))
         return ld
 
@@ -976,19 +978,16 @@ class Z80(object):
         elif inc:
             def ld():
                 u16 = self.get_reg16(reg16)
-                self.logger.debug('ldi %s, (%s)', reg8, reg16)
                 self.set_reg8(reg8, self.mmu.get_addr(u16))
                 self.set_reg16(reg16, u16 + 1)
         elif dec:
             def ld():
                 u16 = self.get_reg16(reg16)
-                self.logger.debug('ldd %s, (%s)', reg8, reg16)
                 self.set_reg8(reg8, self.mmu.get_addr(u16))
                 self.set_reg16(reg16, u16 + 0xffff)
         else:
             def ld():
                 u16 = self.get_reg16(reg16)
-                self.logger.debug('ld %s, (%s)', reg8, reg16)
                 self.set_reg8(reg8, self.mmu.get_addr(u16))
         return ld
 
@@ -998,13 +997,10 @@ class Z80(object):
 
         def ld():
             if src_reg16 == 'sp':
-                self.logger.debug('ld %s, sp', dest_reg16)
                 self.set_reg16(dest_reg16, self.sp)
             elif dest_reg16 == 'sp':
-                self.logger.debug('ld sp, %s', src_reg16)
                 self.sp = self.get_reg16(src_reg16)
             else:
-                self.logger.debug('ld %s, %s', src_reg16, dest_reg16)
                 self.set_reg16(dest_reg16, self.get_reg16(src_reg16))
         return ld
 
@@ -1017,7 +1013,6 @@ class Z80(object):
 
         def ld():
             imm16 = self.fetch2()
-            self.logger.debug('ld %s, (%#x)', reg8, imm16)
             self.set_reg8(reg8, self.mmu.get_addr(imm16))
         return ld
 
@@ -1029,13 +1024,11 @@ class Z80(object):
         :rtype: None"""
 
         imm16 = self.fetch2()
-        self.logger.debug('ld (%#x), sp', imm16)
         self.mmu.set_addr(imm16, self.sp >> 8)
         self.mmu.set_addr(imm16 + 1, self.sp & 0xff)
 
     def ld_spimm8toregHL(self):
         imm8 = self.fetch()
-        self.logger.debug('ld hl, sp+%#x', imm8)
 
         result = (self.sp & 0xff) + imm8
         if (self.sp & 0x0f) + (imm8 & 0x0f) > 0xf:
@@ -1064,7 +1057,6 @@ class Z80(object):
 
         def ld():
             addr = self.get_reg16(reg16)
-            self.logger.debug('ld (%s), sp', reg16)
 
             self.mmu.set_addr(addr, self.sp >> 8)
             self.mmu.set_addr(addr + 1, self.sp & 0xff)
@@ -1074,7 +1066,6 @@ class Z80(object):
 
         def ld():
             imm8 = self.fetch()
-            self.logger.debug('ld (%s), %#x', reg16, imm8)
             addr16 = self.get_reg16('hl')
             self.mmu.set_addr(addr16, imm8)
         return ld
@@ -1084,7 +1075,6 @@ class Z80(object):
         """0x36"""
 
         imm8 = self.fetch()
-        self.logger.debug('ld (hl), %#x', imm8)
         addr16 = self.get_reg16('hl')
         self.mmu.set_addr(addr16, imm8)
 
@@ -1092,26 +1082,22 @@ class Z80(object):
         """0xe0 -- load regA to 0xff00+addr8
         """
         addr8 = self.fetch()
-        self.logger.debug('ldh (%#x), a', addr8)
         self.mmu.set_addr(0xff00+addr8, self.get_reg8('a'))
 
     def ldh_addr8toregA(self):
         """0xf0 -- load (0xff00+addr8) into regA
         """
         addr8 = self.fetch()
-        self.logger.debug('ldh a, (%#x)', addr8)
         self.set_reg8('a', self.mmu.get_addr(0xff00+addr8))
 
     def ldh_regAtoaddrC(self):
         """0xe2 -- load regA to (0xff00+regC)
         """
-        self.logger.debug('ldh (c), a')
         self.mmu.set_addr(0xff00+self.get_reg8('c'), self.get_reg8('a'))
 
     def ldh_addrCtoregA(self):
         """0xf2 -- load (0xff00+regC) to regA
         """
-        self.logger.debug('ldh a, (c)')
         self.set_reg8('a', self.mmu.get_addr(0xff00+self.get_reg8('c')))
 
     def inc_reg8(self, reg8):
@@ -1121,7 +1107,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def inc():
-            self.logger.debug('inc %s', reg8)
             u8 = self.get_reg8(reg8)
 
             result = u8 + 1
@@ -1147,7 +1132,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def inc():
-            self.logger.debug('inc %s', reg16)
             u16 = self.get_reg16(reg16)
 
             result = u16 + 1
@@ -1161,7 +1145,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def dec():
-            self.logger.debug('dec %s', reg8)
             u8 = self.get_reg8(reg8)
 
             result = u8 + 0xff
@@ -1188,7 +1171,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def dec():
-            self.logger.debug('dec %s', reg16)
             u16 = self.get_reg16(reg16)
 
             result = u16 + 0xffff
@@ -1199,7 +1181,6 @@ class Z80(object):
         """Increments the value at the address in `reg16`."""
 
         def inc():
-            self.logger.debug('inc (%s)', reg16)
             addr16 = self.get_reg16(reg16)
             u8 = self.mmu.get_addr(addr16)
             result = u8 + 1
@@ -1222,7 +1203,6 @@ class Z80(object):
     def inc_addrHL(self):
         """Increments the value at the address in HL."""
 
-        self.logger.debug('inc (hl)')
         addr16 = self.get_reg16('hl')
         result = self.mmu.get_addr(addr16) + 1
 
@@ -1243,7 +1223,6 @@ class Z80(object):
     def dec_addrHL(self):
         """Decrements the value at the address in HL."""
 
-        self.logger.debug('dec (hl)')
         addr16 = self.get_reg16('hl')
         u8 = self.mmu.get_addr(addr16)
         result = u8 + 0xff
@@ -1270,7 +1249,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def add():
-            self.logger.debug('add hl, %s', reg16)
             x = self.get_reg16('hl')
             y = self.get_reg16(reg16)
             result = x + y
@@ -1299,11 +1277,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def add():
-            if carry:
-                self.logger.debug('adc %s, %s', dest_reg8, src_reg8)
-            else:
-                self.logger.debug('add %s, %s', dest_reg8, src_reg8)
-
             src_u8 = self.get_reg8(src_reg8)
             dest_u8 = self.get_reg8(dest_reg8)
 
@@ -1342,10 +1315,6 @@ class Z80(object):
 
         def add():
             imm8 = self.fetch()
-            if carry:
-                self.logger.debug('adc %s, %#x', reg8, imm8)
-            else:
-                self.logger.debug('add %s, %#x', reg8, imm8)
             u8 = self.get_reg8(reg8)
 
             if carry:
@@ -1380,7 +1349,6 @@ class Z80(object):
 
         def add():
             imm8 = self.fetch()
-            self.logger.debug('add sp, %#x', imm8)
             sp = self.sp
             lo = (sp & 0xff) + imm8
             self.sp = (sp & 0xff00) | (lo & 0xff)
@@ -1410,11 +1378,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def add():
-            if carry:
-                self.logger.debug('adc %s, (%s)', reg8, reg16)
-            else:
-                self.logger.debug('add %s, (%s)', reg8, reg16)
-
             addr = self.get_reg16(reg16)
             src_u8 = self.mmu.get_addr(addr)
             dest_u8 = self.get_reg8(reg8)
@@ -1454,11 +1417,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def sub():
-            if carry:
-                self.logger.debug('sbc %s, %s', dest_reg8, src_reg8)
-            else:
-                self.logger.debug('sub %s, %s', dest_reg8, src_reg8)
-
             src_u8 = self.get_reg8(src_reg8)
             dest_u8 = self.get_reg8(dest_reg8)
 
@@ -1497,11 +1455,6 @@ class Z80(object):
 
         def sub():
             imm8 = self.fetch()
-            if carry:
-                ins = 'sbc'
-            else:
-                ins = 'sub'
-            self.logger.debug('%s %s, %#x', ins, reg8, imm8)
             u8 = self.get_reg8(reg8)
 
             result = u8 + (((imm8 ^ 0xff) + 1) & 0xff)
@@ -1544,11 +1497,6 @@ class Z80(object):
             x = self.get_reg8(reg8)
             y = self.mmu.get_addr(imm16)
 
-            if carry:
-                self.logger.debug('sbc %s, (%#x)', reg8, imm16)
-            else:
-                self.logger.debug('sub %s, (%#x)', reg8, imm16)
-
             result = x + (((y ^ 0xff) + 1) & 0xff)
             if carry:
                 # result -= 1
@@ -1587,10 +1535,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def sub():
-            if carry:
-                self.logger.debug('sbc %s, (%s)', reg8, reg16)
-            else:
-                self.logger.debug('sub %s, (%s)', reg8, reg16)
             x = self.get_reg8(reg8)
             y = self.mmu.get_addr(self.get_reg16(reg16))
 
@@ -1626,7 +1570,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def band():
-            self.logger.debug('and %s', reg8)
             result = self.get_reg8('a') & self.get_reg8(reg8)
             self.set_reg8('a', result)
 
@@ -1648,7 +1591,6 @@ class Z80(object):
 
         def band():
             imm8 = self.fetch()
-            self.logger.debug('and %#x', imm8)
             result = self.get_reg8('a') & imm8
             self.set_reg8('a', result)
 
@@ -1671,7 +1613,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def band():
-            self.logger.debug('and (%s)', reg16)
             x = self.get_reg8('a')
             y = self.mmu.get_addr(self.get_reg16(reg16))
             result = x & y
@@ -1695,7 +1636,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def bor():
-            self.logger.debug('or %s', reg8)
             result = self.get_reg8('a') | self.get_reg8(reg8)
             self.set_reg8('a', result)
 
@@ -1717,7 +1657,6 @@ class Z80(object):
 
         def bor():
             imm8 = self.fetch()
-            self.logger.debug('or %#x', imm8)
             result = self.get_reg8('a') | imm8
             self.set_reg8('a', result)
 
@@ -1740,7 +1679,6 @@ class Z80(object):
 
         def bor():
             imm16 = self.fetch2()
-            self.logger.debug('or (%#x)', imm16)
             result = self.get_reg8('a') | self.mmu.get_addr(imm16)
             self.set_reg8('a', result)
 
@@ -1762,7 +1700,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def bor():
-            self.logger.debug('or (%s)', reg16)
             result = self.get_reg8('a') | self.mmu.get_addr(self.get_reg16(reg16))
             self.set_reg8('a', result)
 
@@ -1784,7 +1721,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def bxor():
-            self.logger.debug('xor %s', reg8)
             result = self.get_reg8('a') ^ self.get_reg8(reg8)
             self.set_reg8('a', result)
 
@@ -1806,7 +1742,6 @@ class Z80(object):
 
         def bxor():
             imm8 = self.fetch()
-            self.logger.debug('xor %#x', imm8)
             result = self.get_reg8('a') ^ imm8
             self.set_reg8('a', result)
 
@@ -1829,7 +1764,6 @@ class Z80(object):
 
         def bxor():
             imm16 = self.fetch2()
-            self.logger.debug('xor (%#x)', imm16)
             result = self.get_reg8('a') ^ self.mmu.get_addr(imm16)
             self.set_reg8('a', result)
 
@@ -1851,7 +1785,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def bxor():
-            self.logger.debug('xor (%s)', reg16)
             result = self.get_reg8('a') ^ self.mmu.get_addr(self.get_reg16(reg16))
             self.set_reg8('a', result)
 
@@ -1878,7 +1811,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def cp():
-            self.logger.debug('cp %s', reg8_2)
             result = self.get_reg8(reg8_1) - self.get_reg8(reg8_2)
 
             if result & 0xff == 0:
@@ -1910,7 +1842,6 @@ class Z80(object):
 
         def cp():
             imm16 = self.fetch2()
-            self.logger.debug('cp (%#x)', imm16)
             result = self.get_reg8(reg8) - self.mmu.get_addr(imm16)
 
             if result & 0xff == 0:
@@ -1941,7 +1872,6 @@ class Z80(object):
         :rtype: int → None"""
 
         def cp():
-            self.logger.debug('cp (%s)', reg16)
             result = self.get_reg8(reg8) - self.mmu.get_addr(self.get_reg16(reg16))
 
             if result & 0xff == 0:
@@ -1969,8 +1899,7 @@ class Z80(object):
 
         imm8 = self.fetch()
         regA = self.get_reg8('a')
-        self.logger.debug('cp %#x', imm8)
-        result = regA + imm8
+        result = regA - imm8
 
         if result & 0xff == 0:
             self.set_zero_flag()
@@ -1997,7 +1926,6 @@ class Z80(object):
         :rtype None → None"""
 
         def rl():
-            self.logger.debug('rl %s', reg8)
             last_carry = self.get_carry_flag()
             reg = self.get_reg8(reg8)
             result = (reg << 1) | last_carry
@@ -2019,7 +1947,6 @@ class Z80(object):
         return rl
 
     def rla(self):
-        self.logger.debug('rla')
         last_carry = self.get_carry_flag()
         reg = self.get_reg8('a')
         result = (reg << 1) | last_carry
@@ -2038,7 +1965,6 @@ class Z80(object):
 
     def rl_reg16addr(self, reg16):
         def rl():
-            self.logger.debug('rl (%s)', reg16)
             last_carry = self.get_carry_flag()
             reg = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(reg)
@@ -2068,7 +1994,6 @@ class Z80(object):
         :rtype None → None"""
 
         def rlc():
-            self.logger.debug('rlc %s', reg8)
             reg = self.get_reg8(reg8)
             result = (reg << 1) | (reg >> 7)
 
@@ -2089,7 +2014,6 @@ class Z80(object):
         return rlc
 
     def rlca(self):
-        self.logger.debug('rlca')
         reg = self.get_reg8('a')
         result = (reg << 1) | (reg >> 7)
 
@@ -2107,7 +2031,6 @@ class Z80(object):
 
     def rlc_reg16addr(self, reg16):
         def rlc():
-            self.logger.debug('rlc (%s)', reg16)
             reg = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(reg)
             result = (d8 << 1) | (d8 >> 7)
@@ -2136,7 +2059,6 @@ class Z80(object):
         :rtype: None → None"""
 
         def rr():
-            self.logger.debug('rr %s', reg8)
             last_carry = self.get_carry_flag()
             reg = self.get_reg8(reg8)
             result = (reg >> 1) | (last_carry << 7)
@@ -2158,7 +2080,6 @@ class Z80(object):
         return rr
 
     def rra(self):
-        self.logger.debug('rra')
         last_carry = self.get_carry_flag()
         reg = self.get_reg8('a')
         result = (reg >> 1) | (last_carry << 7)
@@ -2177,7 +2098,6 @@ class Z80(object):
 
     def rr_reg16addr(self, reg16):
         def rr():
-            self.logger.debug('rr (%s)', reg16)
             last_carry = self.get_carry_flag()
             reg = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(reg)
@@ -2204,7 +2124,6 @@ class Z80(object):
         logical shift reg8 right 1, place old bit 0 in CF and bit 7."""
 
         def rrc():
-            self.logger.debug('rrc %s', reg8)
             reg = self.get_reg8(reg8)
             result = (reg >> 1) | ((reg << 7) & 0x80)
 
@@ -2225,7 +2144,6 @@ class Z80(object):
         return rrc
 
     def rrca(self):
-        self.logger.debug('rrca')
         reg = self.get_reg8('a')
         result = (reg >> 1) | ((reg << 7) & 0x80)
 
@@ -2244,7 +2162,6 @@ class Z80(object):
 
     def rrc_reg16addr(self, reg16):
         def rrc():
-            self.logger.debug('rrc (%s)', reg16)
             reg = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(reg)
             result = (d8 >> 1) | ((d8 << 7) & 0x80)
@@ -2270,7 +2187,6 @@ class Z80(object):
         Logical shift reg8 left 1 and place old bit 0 in CF."""
 
         def sla():
-            self.logger.debug('sla %s', reg8)
             reg = self.get_reg8(reg8)
             result = reg << 1
 
@@ -2295,7 +2211,6 @@ class Z80(object):
         Logical shift (addr16) left 1 and place old bit 0 in CF."""
 
         def sla():
-            self.logger.debug('sla (%s)', reg16)
             addr = self.get_reg16(reg16)
             reg = self.mmu.get_addr(addr)
             result = reg << 1
@@ -2321,7 +2236,6 @@ class Z80(object):
         Arithmetic shift reg8 right 1 and place old bit 7 in CF."""
         
         def sra():
-            self.logger.debug('sla %s', reg8)
             reg = self.get_reg8(reg8)
             result = (reg & 0x80) | (reg >> 1)
 
@@ -2346,7 +2260,6 @@ class Z80(object):
         Arithmetic shift (addr16) right 1 and place old bit 7 in CF."""
 
         def sra():
-            self.logger.debug('sla (%s)', reg16)
             addr16 = self.get_reg16(reg16)
             reg = self.mmu.get_addr(addr16)
             result = (reg & 0x80) | (reg >> 1)
@@ -2369,7 +2282,6 @@ class Z80(object):
 
     def swap_reg8(self, reg8):
         def swap():
-            self.logger.debug('swap %s', reg8)
             d8 = self.get_reg8(reg8)
             hi = d8 >> 4
             lo = d8 & 0xf
@@ -2386,7 +2298,6 @@ class Z80(object):
 
     def swap_reg16addr(self, reg16):
         def swap():
-            self.logger.debug('swap (%s)', reg16)
             addr = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(addr)
             hi = d8 >> 4
@@ -2406,7 +2317,6 @@ class Z80(object):
         """Logical shift reg8 right 1 and place old LSb in C"""
 
         def srl():
-            self.logger.debug('srl %s', reg8)
             reg = self.get_reg8(reg8)
             result = reg >> 1
 
@@ -2429,7 +2339,6 @@ class Z80(object):
         """Logical shift reg8 right 1 and place old LSb in C"""
 
         def srl():
-            self.logger.debug('srl (%s)', reg16)
             addr = self.get_reg16(reg16)
             reg = self.mmu.get_addr(addr)
             result = reg >> 1
@@ -2451,7 +2360,6 @@ class Z80(object):
 
     def bit_reg8(self, i, reg8):
         def bit():
-            self.logger.debug('bit %d, %s', i, reg8)
             d8 = self.get_reg8(reg8)
             if (d8 >> i) & 0x1 == 0:
                 self.set_zero_flag()
@@ -2463,7 +2371,6 @@ class Z80(object):
 
     def bit_reg16addr(self, i, reg16):
         def bit():
-            self.logger.debug('bit %d, (%s)', i, reg16)
             addr = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(addr)
             if (d8 >> i) & 0x1 == 1:
@@ -2476,7 +2383,6 @@ class Z80(object):
 
     def res_reg8(self, i, reg8):
         def res():
-            self.logger.debug('res %d, %s', i, reg8)
             d8 = self.get_reg8(reg8)
             result = d8 & ((1 << i) ^ 0xff)
             self.set_reg8(reg8, result)
@@ -2484,7 +2390,6 @@ class Z80(object):
 
     def res_reg16addr(self, i, reg16):
         def res():
-            self.logger.debug('res %d, (%s)', i, reg16)
             addr = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(addr)
             result = d8 & ((1 << i) ^ 0xff)
@@ -2493,7 +2398,6 @@ class Z80(object):
 
     def set__reg8(self, i, reg8):
         def set():
-            self.logger.debug('set %d, %s', i, reg8)
             d8 = self.get_reg8()
             result = d8 | (1 << i)
             self.set_reg8(reg8, result)
@@ -2501,7 +2405,6 @@ class Z80(object):
 
     def set_reg16addr(self, i, reg16):
         def set():
-            self.logger.debug('set %d, (%s)', i, reg16)
             addr = self.get_reg16(reg16)
             d8 = self.mmu.get_addr(addr)
             result = d8 | (1 << i)
@@ -2511,7 +2414,6 @@ class Z80(object):
     def cpl(self):
         """0x2f: ~A"""
 
-        self.logger.debug('cpl')
         result = self.get_reg8('a') ^ 0xff
         self.set_reg8('a', result)
         self.set_halfcarry_flag()
@@ -2520,7 +2422,6 @@ class Z80(object):
     def daa(self):
         """0x27: adjust regA following BCD addition."""
 
-        self.logger.debug('daa')
         reg = self.get_reg8('a')
 
         hi = reg >> 4
@@ -2598,13 +2499,11 @@ class Z80(object):
     def scf(self):
         """0x37: set carry flag"""
 
-        self.logger.debug('scf')
         self.set_carry_flag()
 
     def ccf(self):
         """0x3f: clear carry flag"""
 
-        self.logger.debug('ccf')
         self.reset_carry_flag()
 
     def jr_imm8(self, cond=None):
@@ -2634,14 +2533,12 @@ class Z80(object):
         if cond is None:
             def jr():
                 imm8 = self.fetch()
-                self.logger.debug('jr %#x', imm8)
                 if (imm8 >> 7) & 1: # negative
                     imm8 = twoscompl16(twoscompl8(imm8))
                 self.pc = add_s16(self.pc, imm8)
         else:
             def jr():
                 imm8 = self.fetch()
-                self.logger.debug('jr %s, %#x', cond, imm8)
                 if check_cond():
                     if (imm8 >> 7) & 1: # negative
                         imm8 = twoscompl16(twoscompl8(imm8))
@@ -2676,12 +2573,10 @@ class Z80(object):
         if cond is None:
             def jp():
                 imm16 = self.fetch2()
-                self.logger.debug('jp %#x', imm16)
                 self.pc = imm16
         else:
             def jp():
                 imm16 = self.fetch2()
-                self.logger.debug('jp %s, %#x', cond, imm16)
                 if check_cond():
                     self.pc = imm16
 
@@ -2692,7 +2587,6 @@ class Z80(object):
         in :py:data:reg16"""
 
         def jp():
-            self.logger.debug('jp %s', reg16)
             self.pc = self.get_reg16(reg16)
         return jp
 
@@ -2705,7 +2599,6 @@ class Z80(object):
 
         if cond is None:
             def retc():
-                self.logger.debug('ret')
                 sp = self.sp
                 pc = (self.mmu.get_addr(sp + 1) << 8) | self.mmu.get_addr(sp)
                 self.pc = pc
@@ -2726,7 +2619,6 @@ class Z80(object):
                     raise ValueError('cond must be one of Z, NZ, C, NC')
 
                 if flag:
-                    self.logger.debug('ret %s', cond)
                     sp = self.sp
                     pc = (self.mmu.get_addr(sp + 1) << 8) | self.mmu.get_addr(sp)
                     self.pc = pc
@@ -2736,6 +2628,14 @@ class Z80(object):
 
     def reti(self):
         """0xd9 -- reti"""
+        
+        lo = self.mmu.get_addr(self.sp)
+        hi = self.mmu.get_addr(self.sp + 1)
+        self.pc = (hi << 8) | lo
+        self.sp = self.sp + 2
+
+        return
+
         if self._saved_pc is None:
             raise Z80Error('reti expected _saved_pc != None')
 
@@ -2755,7 +2655,6 @@ class Z80(object):
             def call():
                 imm16 = self.fetch2()
                 self._calls[imm16] += 1
-                self.logger.debug('call %#06x', imm16)
                 pc = self.pc
                 sp = self.sp
                 self.mmu.set_addr(sp - 1, pc >> 8)
@@ -2778,7 +2677,6 @@ class Z80(object):
 
                 imm16 = self.fetch2()
                 self._calls[imm16] += 1
-                self.logger.debug('call %s, %#06x', cond, imm16)
                 pc = self.pc
                 sp = self.sp
                 if flag:
@@ -2820,7 +2718,6 @@ class Z80(object):
 
         if cond is None:
             def call():
-                self.logger.debug('call %s', reg16)
                 self.mmu.set_addr(sp - 1, pc >> 8)
                 self.mmu.set_addr(sp - 2, pc & 0xff)
                 self.pc = self.get_reg16(reg16)
@@ -2828,7 +2725,6 @@ class Z80(object):
         else:
             def call():
                 if check_cond():
-                    self.logger.debug('call %s, %s', cond, reg16)
                     self.mmu.set_addr(sp - 1, pc >> 8)
                     self.mmu.set_addr(sp - 2, pc & 0xff)
                     self.pc = self.get_reg16(reg16)
@@ -2838,7 +2734,6 @@ class Z80(object):
     def push_reg16(self, reg16):
         """0xc5, 0xd5, 0xe5, 0xf5"""
         def push():
-            self.logger.debug('push %s', reg16)
             d16 = self.get_reg16(reg16)
             hi = d16 >> 8
             lo = d16 & 0xff
@@ -2851,7 +2746,6 @@ class Z80(object):
     def pop_reg16(self, reg16):
         """0xc1, 0xd1, 0xe1, 0xf1"""
         def pop():
-            self.logger.debug('pop %s', reg16)
             lo = self.mmu.get_addr(self.sp)
             self.sp = self.sp + 1
             hi = self.mmu.get_addr(self.sp)
@@ -2864,7 +2758,6 @@ class Z80(object):
 
         def rst_addr():
             pc = self.pc
-            self.logger.debug('rst %#x', addr)
             hi = pc >> 8
             lo = pc & 0xff
 
@@ -2881,12 +2774,10 @@ class Z80(object):
         """0xf3 -- di
         Disable interrupts."""
 
-        self.logger.debug('di')
         self.interrupt_controller.di()
 
     def ei(self):
         """0xfb -- ei
         Enable interrupts."""
 
-        self.logger.debug('ei')
         self.interrupt_controller.ei()

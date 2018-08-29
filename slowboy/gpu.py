@@ -5,7 +5,7 @@ from time import time
 import functools as ft
 
 from slowboy.util import ClockListener, add_s8
-from slowboy.gfx import GBTileset, get_tile_surfaces, ltorgba
+from slowboy.gfx import get_tile_surfaces, ltorgba, decode_2bit, decode_tile
 from slowboy.interrupts import InterruptController, InterruptType
 import sdl2
 from sdl2 import SDL_BlitSurface
@@ -44,6 +44,12 @@ STAT_MODE_OFFSET = 0
 STAT_MODE_MASK = 0x03
 
 
+TWIDTH = 8
+THEIGHT = 8
+TSWIDTH = 128
+TSHEIGHT = 128
+TSWIDTH_TILES = TSWIDTH // TWIDTH
+TSHEIGHT_TILES = TSHEIGHT // THEIGHT
 SCREEN_WIDTH = 160
 SCREEN_HEIGHT = 144
 BACKGROUND_WIDTH = 256
@@ -84,7 +90,10 @@ class GPU(ClockListener):
                                                               32, sdl2.SDL_PIXELFORMAT_RGBA32)
         self._fgsurface = sdl2.SDL_CreateRGBSurfaceWithFormat(0, BACKGROUND_WIDTH, BACKGROUND_HEIGHT,
                                                               32, sdl2.SDL_PIXELFORMAT_RGBA32)
-        self._bgtileset = None  # sdl2.SDL_Surface
+        self._bgtileset = sdl2.SDL_CreateRGBSurfaceWithFormat(0, 16*TWIDTH,
+                                                              16*THEIGHT, 32,
+                                                              sdl2.SDL_PIXELFORMAT_RGBA32)
+            # sdl2.SDL_Surface
         self._fgtileset = None  # sdl2.SDL_Surface
         self._sprite_tiles = None  # sdl2.SDL_Surface
         self._bgpalette = None
@@ -92,6 +101,13 @@ class GPU(ClockListener):
         self._sprite_palette1 = None
         self._sprite_palette = None
         self._needs_update = False
+        self._needs_draw = False
+        """Bitmap indicating which background tiles have been updated in
+        :py:attr:GPU._bgtileset but not :py:attr:GPU._bgsurface"""
+        self._stale_bgtiles = 0
+        """Bitmap indicating which foreground tiles have been updated in
+        :py:attr:GPU._fgtileset but not :py:attr:GPU._fgsurface"""
+        self._stale_fgtiles = 0
 
         self._bgp = 0xfc   # BG palette data
         self._obp0 = 0xff  # Object palette 0 data
@@ -253,7 +269,7 @@ class GPU(ClockListener):
             # LYC interrupt
             self.stat |= 1 << STAT_LYC_FLAG_OFFSET
             if self.interrupt_controller is not None:
-                self.interrupt_controller.notify_interrupt(IterruptType.stat)
+                self.interrupt_controller.notify_interrupt(InterruptType.stat)
         else:
             self.stat &= 0xff ^ (1 << STAT_LYC_FLAG_OFFSET)
         self._lyc = value
@@ -377,56 +393,16 @@ class GPU(ClockListener):
         log('0xff4b: WX  : %#04x', self.wx)
 
     def _update_tilesets(self):
-        # TODO allow only updating one tileset
-        if self.lcdc & LCDC_BG_WINDOW_DATA_SELECT_MASK:
-            # 1=8000-8FFF
-            start = 0x8000-VRAM_START
-        else:
-            # 0=8800-97FF
-            start = 0x8800-VRAM_START
-        #self._bgtileset = GBTileset(self.vram[start:start+0x1000],
-        #                      (256, 256), (8, 8))
-        if self._bgtileset:
-            sdl2.SDL_FreeSurface(self._bgtileset)
+        """Update all tileset surfaces. Only needs to be called when pallete or
+        tile data (in VRAM) changes.
+        """
 
-        rgb_tileset = GBTileset(self.vram[start:start+0x1000], (256, 256), (8, 8)).to_rgb(self._bgpalette)
-        rgb_data = bytearray(len(rgb_tileset.data)*4)
-        for i, b in enumerate(rgb_tileset.data):
-            c = ltorgba(b)
-            rgb_data[4*i+0] = (c >> 24) & 0xff
-            rgb_data[4*i+1] = (c >> 16) & 0xff
-            rgb_data[4*i+2] = (c >> 8) & 0xff
-            rgb_data[4*i+3] = c & 0xff
-
-        w, h = rgb_tileset.size
-        self._tileset_size = rgb_tileset.size
-        self._bgtileset = sdl2.SDL_CreateRGBSurfaceWithFormatFrom(bytes(rgb_data), w, h, 32, w*4,  sdl2.SDL_PIXELFORMAT_RGBA32)
-        if not self._bgtileset:
-            raise sdl2.SDL_Error()
-        self._fgtileset = self._bgtileset
-
-        return self._bgtileset
+        for i in range(TSWIDTH_TILES*TSHEIGHT_TILES):
+            self._update_bgtile(i)
 
     def _update_surfaces(self):
-        return
-        # TODO allow only updating one surface
-        for surf in self._bgsurfaces:
-            sdl2.SDL_FreeSurface(surf)
-        rgba_bgpalette = list(map(ltorgba, self._bgpalette))
-        self._bgsurfaces = list(get_tile_surfaces(self._bgtileset.to_rgb(self._bgpalette).split_tiles(),
-                                                  rgba_bgpalette))
-
-        def ltorgba_fg(c):
-            alpha = 0x00 if c == 0 else 0xff
-            return ltorgba(c, alpha=alpha)
-
-        for surf in self._fgsurfaces:
-            sdl2.SDL_FreeSurface(surf)
-        rgba_fgpalette = list(map(ltorgba_fg, self._bgpalette))
-        #rgba_fgpalette[0] = 0xffffff00
-        self._fgsurfaces = list(get_tile_surfaces(self._fgtileset.to_rgb(self._bgpalette).split_tiles(),
-                                                  rgba_fgpalette))
-        return self._bgsurfaces
+        self._update_bgsurface()
+        self._update_fgsurface()
 
     def _update_bgsurface(self):
         if self.lcdc & LCDC_BG_TILE_DISPLAY_SELECT_MASK:
@@ -451,45 +427,45 @@ class GPU(ClockListener):
             fgmap = bytes(map(ft.partial(add_s8, 128), fgmap))
 
         bgsurface = self._bgsurface
+        stale_bgtiles = self._stale_bgtiles
         fgsurface = self._fgsurface
         fgsurfaces = self._fgsurfaces
         tile_size = (8, 8)
-        tile_width, tile_height = tile_size
-        width_tiles = BACKGROUND_WIDTH // tile_width
-        #src = sdl2.SDL_Rect(0, 0, 256, 256)
-        #dst = sdl2.SDL_Rect(0, 0, 256, 256)
-        #SDL_BlitSurface(self._bgtileset, src, bgsurface, dst)
-        height_tiles = BACKGROUND_HEIGHT // tile_height
-        #ts_width_tiles = self._tileset_size[0] // tile_width
+        width_tiles = BACKGROUND_WIDTH // TWIDTH
+        height_tiles = BACKGROUND_HEIGHT // THEIGHT
         for i, tid in enumerate(bgmap):
-            x = (i % width_tiles) * tile_width
-            y = (i // width_tiles) * tile_height
-            tx = (tid % width_tiles) * tile_width
-            ty = (tid // width_tiles) * tile_height
+            if (stale_bgtiles >> tid) & 1 == 0:
+                continue
+            x = (i % width_tiles) * TWIDTH
+            y = (i // width_tiles) * THEIGHT
+            tx = (tid % TSWIDTH_TILES) * TWIDTH
+            ty = (tid // TSWIDTH_TILES) * THEIGHT
             src = sdl2.SDL_Rect(tx, ty, 8, 8)
             dst = sdl2.SDL_Rect(x, y, 8, 8)
-            #converted = sdl2.SDL_ConvertSurfaceFormat(bgsurfaces[tid], bgsurface.contents.format.contents.format, 0)
-            #if SDL_BlitSurface(converted, src, bgsurface, dst) < 0:
-            #    raise sdl2.SDL_Error()
-            #sdl2.SDL_FreeSurface(converted)
             SDL_BlitSurface(self._bgtileset, src, bgsurface, dst)
 
-            #fgtid = fgmap[i]
-            #tx = (fgtid % width_tiles) * tile_width
-            #ty = (fgtid // width_tiles) * tile_height
-            #src = sdl2.SDL_Rect(tx, ty, 8, 8)
-            #converted = sdl2.SDL_ConvertSurfaceFormat(fgsurfaces[fgtid], fgsurface.contents.format.contents.format, 0)
-            #if SDL_BlitSurface(converted, src, fgsurface, dst) < 0:
-            #    raise sdl2.SDL_Error()
-            #sdl2.SDL_FreeSurface(converted)
+        self._stale_bgtiles = 0
+
+    def _update_fgsurface(self):
+        pass
 
     def draw(self, surface):
         """Returns True if surface was updated and False otherwise."""
-
-        if self.mode_clock < 4560:
+        if self._needs_draw:
+            self._needs_draw = False
+        else:
             return False
 
-        if not self.lcdc & LCDC_DISPLAY_ENABLE_MASK:
+        self.frame_count += 1
+        if self.frame_count >= 10:
+            t = time()
+            diff = t - self.last_time
+            self.fps = self.frame_count / diff
+            self.last_time = t
+            self.frame_count %= 10
+            self.logger.info('{} fps'.format(self.fps))
+
+        if self.lcdc & LCDC_DISPLAY_ENABLE_MASK == 0:
             dst = sdl2.SDL_Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
             color = sdl2.SDL_MapRGB(surface.format, 0xff, 0xff, 0xff)
             if sdl2.SDL_FillRect(surface, dst, color) < 0:
@@ -497,18 +473,21 @@ class GPU(ClockListener):
             return True
 
         if self._needs_update:
-            self._update_tilesets()
-            self._update_surfaces()
-            self._update_bgsurface()
+            #self._update_tilesets()
+            #self._update_bgsurface()
             self._needs_update = False
 
         if self.lcdc & LCDC_BG_DISPLAY_MASK:
-            converted = sdl2.SDL_ConvertSurfaceFormat(self._bgsurface, surface.format.contents.format, 0)
+            print('.')
+            converted = sdl2.SDL_ConvertSurfaceFormat(self._bgsurface,
+                                                      surface.format.contents.format,
+                                                      0)
             src = sdl2.SDL_Rect(self.scx, self.scy, SCREEN_WIDTH, SCREEN_HEIGHT)
             dst = sdl2.SDL_Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
             if SDL_BlitSurface(converted, src, surface, dst) < 0:
                 raise sdl2.SDL_Error()
             sdl2.SDL_FreeSurface(converted)
+
         else:
             dst = sdl2.SDL_Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
             color = sdl2.SDL_MapRGB(surface.format, 0xff, 0xff, 0xff)
@@ -522,15 +501,6 @@ class GPU(ClockListener):
         #     if SDL_BlitSurface(converted, src, surface, dst) < 0:
         #         raise sdl2.SDL_Error()
         #     sdl2.SDL_FreeSurface(converted)
-
-        self.frame_count += 1
-        if self.frame_count >= 60:
-            t = time()
-            diff = t - self.last_time
-            self.fps = self.frame_count / diff
-            self.last_time = t
-            self.frame_count %= 60
-            self.logger.info('{} fps'.format(self.fps))
 
         return True
 
@@ -570,6 +540,7 @@ class GPU(ClockListener):
             if self.mode_clock % 204 == 0:
                 self.ly += 1
             if self.mode_clock >= 4560:
+                self._needs_draw = True
                 self.mode = Mode.OAM_READ # 2
                 self.stat ^= 0x3
                 self.stat |= self.mode.value
@@ -586,8 +557,107 @@ class GPU(ClockListener):
         self.logger.debug('set VRAM %#06x=%#06x', VRAM_START+addr, value)
         self._update_vram(addr)
 
+    def _update_bgtile(self, tileid):
+        """Update tile :py:obj:`i` in :py:attr:`GPU._bgtiles`.
+        """
+        # TODO changeme
+        assert tileid < 0x100
+        tile_idx = tileid * 16
+        encoded_tile = self.vram[tile_idx:tile_idx+16]
+        decoded_tile = decode_tile(encoded_tile, self._bgpalette)
+        #decoded_tile = GBTileset(encoded_tile, (8, 8), (8, 8)).to_rgb(self._bgpalette).data
+        rgba_data = bytearray(len(decoded_tile)*4)
+        for i, b in enumerate(decoded_tile):
+            c = ltorgba(b)
+            rgba_data[4*i+0] = (c >> 24) & 0xff
+            rgba_data[4*i+1] = (c >> 16) & 0xff
+            rgba_data[4*i+2] = (c >> 8) & 0xff
+            rgba_data[4*i+3] = c & 0xff
+        tile_surface = sdl2.SDL_CreateRGBSurfaceWithFormatFrom(bytes(rgba_data),
+                                                               TWIDTH, THEIGHT,
+                                                               32, TWIDTH*4,
+                                                               sdl2.SDL_PIXELFORMAT_RGBA32)
+        if not tile_surface:
+            print(sdl2.SDL_GetError())
+            raise Exception
+        x = (tileid % TSWIDTH_TILES) * TWIDTH
+        y = (tileid // TSWIDTH_TILES) * THEIGHT
+        #print(x, y)
+        dst = sdl2.SDL_Rect(x, y, TWIDTH, THEIGHT)
+        if sdl2.SDL_BlitSurface(tile_surface, None, self._bgtileset, dst) < 0:
+            print(sdl2.SDL_GetError())
+            raise Exception
+
+        sdl2.SDL_FreeSurface(tile_surface)
+
+        self._stale_bgtiles |= (1 << tileid)
+
+    def _update_fgtile(self, i):
+        """Update tile :py:obj:`i` in :py:attr:`GPU._fgtiles`.
+        """
+        # TODO
+        self._stale_fgtiles |= (1 << i)
+
     def _update_vram(self, addr):
-        """Update internal dataset (decoded tiles, etc)"""
+        """Update internal dataset (decoded tiles, etc)
+        """
+
+        if isinstance(addr, str):
+            # Register
+            if addr == 'lcdc':
+                self._update_tilesets()
+                self._update_surfaces()
+                # TODO
+                #self._update_sprites()
+            elif addr == 'bgp':
+                self._update_tilesets()
+                self._update_surfaces()
+            elif addr == 'obp0':
+                # TODO
+                #self._update_sprite()
+                pass
+            elif addr == 'obp1':
+                # TODO
+                #self._update_sprite()
+                pass
+            elif addr == 'scx' or addr == 'scy':
+                #self._update_bgsurface()
+                pass
+            elif addr == 'wx' or addr == 'wy':
+                # TODO
+                self._update_fgsurface()
+                pass
+        elif isinstance(addr, int):
+            # VRAM
+            # Tilemap data
+            if 0x9800 <= addr < 0xa000:
+                if self.lcdc & LCDC_BG_TILE_DISPLAY_SELECT_MASK == 0:
+                    # 0x9800-9bff
+                    tile = addr - 0x9800
+                else:
+                    # 0x9c00-0x9fff
+                    tile = addr - 0x9c00
+                #self._update_bgtile(tile)
+                if self.lcdc & LCDC_WINDOW_TILE_DISPLAY_SELECT_MASK == 0:
+                    # 0x9800-9bff
+                    tile = addr - 0x9800
+                else:
+                    # 0x9c00-0x9fff
+                    tile = addr - 0x9c00
+                self._update_fgtile(tile)
+                self._update_surfaces()
+            # Tile data
+            elif 0x8000 <= addr < 0x9800:
+                if self.lcdc & LCDC_BG_WINDOW_DATA_SELECT_MASK == 0:
+                    # 0x8800-0x97ff
+                    tile = (addr - 0x8800) // 16
+                else:
+                    # 0x8000-0x8fff
+                    tile = (addr - 0x8000) // 16
+                self._update_bgtile(tile)
+                self._update_fgtile(tile)
+
+
         # what is this for? TODO
         #self.vram[addr] = val
         #hi, lo = self.vram[addr], self.vram[addr+1]

@@ -3,13 +3,15 @@ import logging
 
 from slowboy.gpu import GPU, VRAM_START, OAM_START
 from slowboy.interrupts import InterruptController
+from slowboy.timer import Timer
 
 JOYP_SELECT_BUTTON_MASK = 0x20
 JOYP_SELECT_DIRECTION_MASK = 0x10
 
 
 class MMU():
-    def __init__(self, rom: bytes=None, gpu: GPU=None, interrupt_controller: InterruptController=None,
+    def __init__(self, rom: bytes=None, gpu: GPU=None, timer: Timer=None,
+                 interrupt_controller: InterruptController=None,
                  logger=None, log_level=logging.WARNING):
         if logger is None:
             self.logger = logging.getLogger(__name__)
@@ -22,6 +24,7 @@ class MMU():
         if rom is not None:
             self.log_rominfo()
         self.gpu = gpu
+        self.timer = timer
         self.interrupt_controller = interrupt_controller
         self.cartridge_ram = bytearray(8*1024)
         self.wram = bytearray(4*1024 + 4*1024)
@@ -40,7 +43,7 @@ class MMU():
             'a': False,
         }
 
-        self._dma = None
+        self._dma = 0
 
         # Mapping of address to callback
         self.watchpoints = {}
@@ -118,12 +121,18 @@ class MMU():
     def unload_gpu(self):
         self.gpu = None
 
+    def load_timer(self, timer: Timer):
+        self.timer = timer
+
+    def unload_timer(self):
+        self.timer = None
+
     def load_interrupt_controller(self, interrupt_controller: InterruptController):
         self.interrupt_controller = interrupt_controller
 
     def get_addr(self, addr):
-        if addr in self.watchpoints:
-            self.watchpoints[addr](addr, None)
+        #if addr in self.watchpoints:
+        #    self.watchpoints[addr](addr, None)
 
         if addr < 0:
             # invalid
@@ -164,14 +173,14 @@ class MMU():
             elif addr == 0xff01 | addr == 0xff02:
                 raise NotImplementedError('Serial transfer registers')
             elif addr == 0xff04:
-                raise NotImplementedError('DIV register')
+                return self.timer.div
             elif addr == 0xff05:
-                raise NotImplementedError('TIMA register')
+                return self.timer.tima
             elif addr == 0xff06:
-                self.logger.error('not implemented: TMA register')
-                raise NotImplementedError('TMA register')
+                return self.timer.tma
             elif addr == 0xff07:
-                raise NotImplementedError('TAC register')
+                return self.timer.tac
+                pass
             elif addr == 0xff0f:
                 # IF
                 return self.interrupt_controller.if_
@@ -264,14 +273,13 @@ class MMU():
             elif addr == 0xff01 | addr == 0xff02:
                 raise NotImplementedError('Serial transfer registers')
             elif addr == 0xff04:
-                raise NotImplementedError('DIV register')
+                self.timer.div = value
             elif addr == 0xff05:
-                raise NotImplementedError('TIMA register')
+                self.timer.tima = value
             elif addr == 0xff06:
-                self.logger.error('not implemented: TMA register')
-                raise NotImplementedError('TMA register')
+                self.timer.tma = value
             elif addr == 0xff07:
-                raise NotImplementedError('TAC register')
+                self.timer.tac = value
             elif addr == 0xff0f:
                 # IF
                 self.interrupt_controller.if_ = value
@@ -367,4 +375,4 @@ class MMU():
         value = value & 0xff
         self._dma = value
         for i in range(0xa0):
-            self.gpu.set_oam(i, self.get_addr(value+i))
+            self.gpu.set_oam(i, self.get_addr(value*0x100+i))

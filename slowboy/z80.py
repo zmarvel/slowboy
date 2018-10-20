@@ -1,5 +1,8 @@
 
 
+import faulthandler
+
+faulthandler.enable()
 
 
 from enum import Enum
@@ -10,6 +13,7 @@ from slowboy.util import Op, ClockListener, twoscompl8, twoscompl16, add_s8, add
 from slowboy.mmu import MMU
 from slowboy.gpu import GPU
 from slowboy.interrupts import InterruptController
+from slowboy.timer import Timer
 
 
 class Z80Error(Exception):
@@ -26,7 +30,8 @@ class Z80(object):
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
     internal_reglist = ['b', 'c', 'd', 'e', 'h', 'l', 'a', 'f']
 
-    def __init__(self, rom=None, mmu=None, gpu=None, log_level=logging.WARNING):
+    def __init__(self, rom=None, mmu=None, gpu=None, timer=None,
+                 log_level=logging.WARNING):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
         self.logger.addFilter(self)
@@ -38,12 +43,20 @@ class Z80(object):
         self.mmu = MMU(rom=rom, logger=self.logger, log_level=log_level) if mmu is None else mmu
         #self.gpu = GPU(logger=self.logger, log_level=log_level) if gpu is None else gpu
         self.gpu = GPU(logger=self.logger) if gpu is None else gpu
-        self.interrupt_controller = InterruptController(logger=self.logger)
         self.mmu.load_gpu(self.gpu)
         self.register_clock_listener(self.gpu)
+
+        self.timer = Timer(logger=self.logger) if timer is None else timer
+        self.mmu.load_timer(self.timer)
+        self.register_clock_listener(self.timer)
+
         self._saved_pc = None
+        self._in_interrupt = False
+
+        self.interrupt_controller = InterruptController(logger=self.logger)
         self.mmu.load_interrupt_controller(self.interrupt_controller)
         self.gpu.load_interrupt_controller(self.interrupt_controller)
+        self.timer.register_interrupt_listener(self.interrupt_controller)
 
         self._init_opcode_map()
 
@@ -68,7 +81,7 @@ class Z80(object):
                 self.opcode = self.mmu.get_addr(self.op_pc+1)
                 self.op = self.cb_opcode_map[self.opcode]
 
-        self._calls = defaultdict(lambda: 0)
+        self._branches = defaultdict(lambda: 0)
 
     def _init_opcode_map(self):
         self.opcode_map = {
@@ -205,9 +218,9 @@ class Z80(object):
                 0x1c: Op(self.inc_reg8('e'), 4, 'inc e'),
                 0x2c: Op(self.inc_reg8('l'), 4, 'inc l'),
                 0x3c: Op(self.inc_reg8('a'), 4, 'inc a'),
-                0x05: Op(self.dec_reg8('b'), 4, 'dec e'),
-                0x15: Op(self.dec_reg8('d'), 4, 'dec l'),
-                0x25: Op(self.dec_reg8('h'), 4, 'dec a'),
+                0x05: Op(self.dec_reg8('b'), 4, 'dec b'),
+                0x15: Op(self.dec_reg8('d'), 4, 'dec d'),
+                0x25: Op(self.dec_reg8('h'), 4, 'dec h'),
                 0x35: Op(self.dec_addrHL, 12, 'dec (hl)'),
                 0x0d: Op(self.dec_reg8('c'), 4, 'dec c'),
                 0x1d: Op(self.dec_reg8('e'), 4, 'dec e'),
@@ -806,9 +819,17 @@ class Z80(object):
             else:
                 return
 
-        if self.interrupt_controller.has_interrupt:
+        # Only handle one interrupt at a time
+        if not self._in_interrupt and self.interrupt_controller.has_interrupt:
             interrupt = self.interrupt_controller.get_interrupt()
-            self._saved_pc = self.pc
+            #self._saved_pc = self.pc
+            pc = self.pc
+            hi = (pc >> 8) & 0xff
+            lo = pc & 0xff
+            self.mmu.set_addr(self.sp, lo)
+            self.mmu.set_addr(self.sp-1, hi)
+            self.sp -= 2
+            self._in_interrupt = True
             self.pc = 0x0040 + interrupt.value*8
             self.interrupt_controller.acknowledge_interrupt(interrupt)
 
@@ -2398,7 +2419,7 @@ class Z80(object):
 
     def set__reg8(self, i, reg8):
         def set():
-            d8 = self.get_reg8()
+            d8 = self.get_reg8(reg8)
             result = d8 | (1 << i)
             self.set_reg8(reg8, result)
         return set
@@ -2535,14 +2556,18 @@ class Z80(object):
                 imm8 = self.fetch()
                 if (imm8 >> 7) & 1: # negative
                     imm8 = twoscompl16(twoscompl8(imm8))
-                self.pc = add_s16(self.pc, imm8)
+                target = add_s16(self.pc, imm8)
+                self._branches[(self.pc, target)] += 1
+                self.pc = target
         else:
             def jr():
                 imm8 = self.fetch()
                 if check_cond():
                     if (imm8 >> 7) & 1: # negative
                         imm8 = twoscompl16(twoscompl8(imm8))
-                    self.pc = add_s16(self.pc, imm8)
+                    target = add_s16(self.pc, imm8)
+                    self._branches[(self.pc, target)] += 1
+                    self.pc = target
 
         return jr
 
@@ -2573,11 +2598,13 @@ class Z80(object):
         if cond is None:
             def jp():
                 imm16 = self.fetch2()
+                self._branches[(self.pc, imm16)] += 1
                 self.pc = imm16
         else:
             def jp():
                 imm16 = self.fetch2()
                 if check_cond():
+                    self._branches[(self.pc, imm16)] += 1
                     self.pc = imm16
 
         return jp
@@ -2587,7 +2614,9 @@ class Z80(object):
         in :py:data:reg16"""
 
         def jp():
-            self.pc = self.get_reg16(reg16)
+            target = self.get_reg16(reg16)
+            self._branches[(self.pc, target)] += 1
+            self.pc = target
         return jp
 
     def ret(self, cond=None):
@@ -2633,6 +2662,7 @@ class Z80(object):
         hi = self.mmu.get_addr(self.sp + 1)
         self.pc = (hi << 8) | lo
         self.sp = self.sp + 2
+        self._in_interrupt = False
 
         return
 
@@ -2654,7 +2684,7 @@ class Z80(object):
         if cond is None:
             def call():
                 imm16 = self.fetch2()
-                self._calls[imm16] += 1
+                self._branches[(self.pc, imm16)] += 1
                 pc = self.pc
                 sp = self.sp
                 self.mmu.set_addr(sp - 1, pc >> 8)
@@ -2676,7 +2706,7 @@ class Z80(object):
                     raise ValueError('cond must be one of Z, NZ, C, NC')
 
                 imm16 = self.fetch2()
-                self._calls[imm16] += 1
+                self._branches[(self.pc, imm16)] += 1
                 pc = self.pc
                 sp = self.sp
                 if flag:

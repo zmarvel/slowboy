@@ -6,16 +6,7 @@ import slowboy.mmu
 import slowboy.gpu
 import slowboy.interrupts
 
-class MockInterruptController(slowboy.interrupts.InterruptListener):
-    def __init__(self):
-        self.ie = 0
-        self.last_interrupt = None
-
-    def notify_interrupt(self, interrupt):
-        self.last_interrupt = interrupt
-
-    def acknowledge_interrupt(self, interrupt):
-        pass
+from tests.mock_interrupt_controller import MockInterruptController
 
 
 class TestMMU(unittest.TestCase):
@@ -153,3 +144,26 @@ class TestMMU(unittest.TestCase):
         self.assertEqual(self.mmu.get_addr(0xffff),
                          self.mmu.interrupt_controller.ie)
         self.assertEqual(self.mmu.get_addr(0xffff), 255)
+
+class TestDMA(unittest.TestCase):
+    def setUp(self):
+        self.mmu = slowboy.mmu.MMU(gpu=slowboy.gpu.GPU())
+        self.rom = bytearray(0x300)
+        for i in range(0x200):
+            self.rom[i] = 0
+        for i in range(0x200, 0x300):
+            self.rom[i] = (i * 2) & 0xff
+        self.mmu.load_rom(self.rom)
+
+    def tearDown(self):
+        pass
+
+    def test_init(self):
+        self.assertEqual(self.mmu.dma, 0)
+
+    def test_dma(self):
+        # Source: 0x200
+        self.mmu.dma = 0x02
+        self.assertEqual(self.mmu.dma, 0x02)
+        for i in range(0xa0):
+            self.assertEqual(self.mmu.get_addr(0xfe00+i), ((0x200+i) * 2) & 0xff)

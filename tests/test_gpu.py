@@ -4,15 +4,8 @@ import unittest
 import slowboy.gpu
 import slowboy.interrupts
 
-class MockInterruptController(slowboy.interrupts.InterruptListener):
-    def __init__(self):
-        self.last_interrupt = None
+from tests.mock_interrupt_controller import MockInterruptController
 
-    def notify_interrupt(self, interrupt):
-        self.last_interrupt = interrupt
-
-    def acknowledge_interrupt(self, interrupt):
-        pass
 
 STAT_IE_ALL_MASK = (slowboy.gpu.STAT_LYC_IE_MASK |
                     slowboy.gpu.STAT_OAM_IE_MASK |
@@ -144,12 +137,12 @@ class TestGPU(unittest.TestCase):
     def test_bgp(self):
         # 11 11 11 00
         self.assertEqual(self.gpu.bgp, 0xfc)
-        self.assertEqual(self.gpu._bgpalette, [0xff, 0x00, 0x00, 0x00])
+        self.assertEqual(self.gpu._palette, [0xff, 0x00, 0x00, 0x00])
 
         # 00 01 10 11
         self.gpu.bgp = 0x1b
         self.assertEqual(self.gpu.bgp, 0x1b)
-        self.assertEqual(self.gpu._bgpalette, [0x00, 0x55, 0xaa, 0xff])
+        self.assertEqual(self.gpu._palette, [0x00, 0x55, 0xaa, 0xff])
 
     def test_obp(self):
         self.assertEqual(self.gpu.obp0, 0xff)
@@ -183,3 +176,13 @@ class TestGPU(unittest.TestCase):
         self.gpu.lyc = 6
         self.assertEqual(self.gpu.stat & slowboy.gpu.STAT_LYC_FLAG_MASK,
                          slowboy.gpu.STAT_LYC_FLAG_MASK)
+
+    def test_wx_wy(self):
+        self.assertEqual(self.gpu.wx, 0)
+        self.assertEqual(self.gpu.wy, 0)
+
+        self.gpu.wx = 7
+        self.assertEqual(self.gpu._wx, 0)
+
+        self.gpu.wy = 0
+        self.assertEqual(self.gpu._wy, 0)

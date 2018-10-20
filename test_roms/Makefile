@@ -7,10 +7,13 @@ CFLAGS =
 LDFLAGS =
 
 ROMS = test0.gb \
-       test1.gb
+       test1.gb \
+       test2.gb \
 
 BINS = tileset1.bin \
-       tilemap1.bin
+       tilemap1.bin \
+       tileset2.bin \
+       tilemap2.bin \
 
 HEXS = $(patsubst %.gb,%.hex,$(ROMS)) \
        $(patsubst %.bin,%.hex,$(BINS))
@@ -19,6 +22,12 @@ all: $(ROMS) $(HEXS) $(BINS)
 
 %.asmpp: %.asm header.asm
 	$(PP) $(PPFLAGS) $< > $@
+
+tileset%.bin: img/tileset%.png scripts/image2tilemap.py
+	python3 scripts/image2tilemap.py $< $@
+
+tilemap%.bin: scripts/gentilemap%.py
+	python3 $< $@
 
 %.gb: %.asmpp $(BINS)
 	$(AS) $(ASFLAGS) \
@@ -30,12 +39,6 @@ all: $(ROMS) $(HEXS) $(BINS)
 
 %.hex: %.bin
 	hexdump -C $< > $@
-
-tileset1.bin: img/tileset1.png scripts/image2tilemap.py
-	python3 scripts/image2tilemap.py $< $@
-
-tilemap1.bin: scripts/gentilemap1.py
-	python3 scripts/gentilemap1.py $@
 
 clean:
 	rm -f $(ROMS) *.asmpp *.bin

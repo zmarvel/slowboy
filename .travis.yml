@@ -5,7 +5,23 @@ python:
     - 3.4
     - 3.5
     - 3.6
+    - 3.7
+addons:
+    apt:
+        packages:
+            - "libjpeg8"
+            - "libjpeg8-dev"
+            - "zlib1g"
+            - "zlib1g-dev"
+before_script:
+    - "curl -sSf -o SDL2-2.0.8.tar.gz https://www.libsdl.org/release/SDL2-2.0.8.tar.gz"
+    - "tar xvzf SDL2-2.0.8.tar.gz"
+    - "cd SDL2-2.0.8"
+    - "./configure"
+    - "make"
+    - "export PYSDL2_DLL_PATH=SDL2-2.0.8/build/.libs"
+    - "cd .."
 install:
     - "dd if=/dev/zero of=blank_rom.gb bs=1k count=32"
     - "pip install ."
-script: "python3 -m unittest discover tests"
+script: "python -m unittest discover ./tests"

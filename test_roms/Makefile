@@ -1,6 +1,7 @@
 
 CC = sdcc
-AS = z80asm
+AS = rgbasm
+LD = rgblink
 PP = m4
 
 CFLAGS =
@@ -9,6 +10,9 @@ LDFLAGS =
 ROMS = test0.gb \
        test1.gb \
        test2.gb \
+       test3.gb \
+
+OBJS = $(ROMS:%.gb=%.o)
 
 BINS = tileset1.bin \
        tilemap1.bin \
@@ -18,7 +22,7 @@ BINS = tileset1.bin \
 HEXS = $(patsubst %.gb,%.hex,$(ROMS)) \
        $(patsubst %.bin,%.hex,$(BINS))
 
-all: $(ROMS) $(HEXS) $(BINS)
+all: $(ROMS) $(HEXS) $(BINS) $(OBJS)
 
 %.asmpp: %.asm header.asm
 	$(PP) $(PPFLAGS) $< > $@
@@ -29,10 +33,13 @@ tileset%.bin: img/tileset%.png scripts/image2tilemap.py
 tilemap%.bin: scripts/gentilemap%.py
 	python3 $< $@
 
-%.gb: %.asmpp $(BINS)
+%.o: %.asmpp $(BINS)
 	$(AS) $(ASFLAGS) \
-	    --list=$(patsubst %.asmpp,%.lst,$<) \
-	    --label=$(patsubst %.asmpp,%.lbl,$<) -o $@ $<
+		-o $@ $<
+
+%.gb: %.o
+	$(LD) $(LDFLAGS) \
+		-o $@ $<
 
 %.hex: %.gb
 	hexdump -C $< > $@
@@ -41,4 +48,4 @@ tilemap%.bin: scripts/gentilemap%.py
 	hexdump -C $< > $@
 
 clean:
-	rm -f $(ROMS) *.asmpp *.bin
+	rm -f $(ROMS) *.asmpp *.hex *.bin

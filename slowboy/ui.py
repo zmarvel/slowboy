@@ -50,7 +50,12 @@ class SDLUI():
         pass
 
     def step(self):
-        self.cpu.step()
+        try:
+            self.cpu.step()
+        except Exception as e:
+            self.cpu.log_op(log=ui.logger.error)
+            self.cpu.log_regs(log=ui.logger.error)
+            raise e
         self.present(self.surface)
 
     def present(self, surface):
@@ -182,7 +187,7 @@ if __name__ == '__main__':
     import sys
     import logging
     root_logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.ERROR)
 
     parser = ap.ArgumentParser(description='slowboy SDL interface')
     parser.add_argument('rom', type=str,
@@ -234,8 +239,12 @@ if __name__ == '__main__':
                 elif event.key.keysym.sym == sdl2.SDLK_q:
                     ui.cpu.log_regs(log=ui.logger.info)
                     ui.cpu.log_op(log=ui.logger.info)
-                    for a in sorted(ui.cpu._calls.keys()):
-                        print(hex(a), ui.cpu._calls[a])
+                    #for a in sorted(ui.cpu._calls.keys()):
+                    #    print(hex(a), ui.cpu._calls[a])
+                    for branch in sorted(ui.cpu._branches.keys(), key=lambda k: ui.cpu._branches[k]):
+                        src, dst = branch
+                        print("{:#04x} → {:#04x}: {}".format(src, dst, ui.cpu._branches[branch]))
+
                     state['running'] = False
                     break
                 elif event.key.keysym.sym == sdl2.SDLK_d:

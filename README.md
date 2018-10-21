@@ -8,13 +8,24 @@ emulate this system?
 
 ## TODO
 
-* Graphics
 * Audio
+* Handle different bank controller configurations
+
+See `notes/performance.md` for some thoughts on speeding up the emulator.
+
+An eventual goal is improving the debugger---see `notes/debugging.md`.
 
 ## Installation
 
-After installing this emulator, you currently won't be able to do much unless
-you want to hack on it. If that's what you're interested in, forge ahead!
+If you install this emulator, it probably won't play very many games. Here are
+some things you *could* do:
+
+- Try running games and create an issue if they don't run, especially if it
+  crashes.
+- Try running or writing the test "games" in `test_roms/` and create an issue if
+  they don't work or crash on your system.
+
+If hacking on it is what you're interested in, please forge ahead!
 
 
 ## Development
@@ -58,3 +69,12 @@ $ coverage --source slowboy -m unittest discover tests
 ```
 
 [coverage]: https://pypi.python.org/pypi/coverage/
+
+## Known Issues
+
+Running the unit tests with `pytest` on my system causes a segfault for some
+reason. The workaround is just running the tests with `unittest`:
+
+```
+$ python -m unittest discover tests
+```

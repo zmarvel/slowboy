@@ -1170,7 +1170,7 @@ class Z80(object):
 
             result = u8 + 0xff
 
-            self.set_reg8(reg8, result & 0xff)
+            self.set_reg8(reg8, result)
 
             if u8 & 0x0f == 0:
                 self.set_halfcarry_flag()

@@ -331,6 +331,69 @@ class TestZ80LoadStore(unittest.TestCase):
         self.assertEqual(self.cpu.get_reg16('DE'), 0x6745)
         self.assertEqual(self.cpu.get_reg16('HL'), 0xab89)
 
+    def test_push_reg16(self):
+        self.cpu.set_reg16('sp', 0xc002)
+        self.cpu.set_reg16('bc', 0x1234)
+
+        self.cpu.push_reg16('bc')()
+
+        self.assertEqual(self.cpu.sp, 0xc000)
+        self.assertEqual(self.cpu.mmu.get_addr(0xc001), 0x12)
+        self.assertEqual(self.cpu.mmu.get_addr(0xc000), 0x34)
+
+    def test_pop_reg16(self):
+        self.cpu.set_reg16('sp', 0xc000)
+        self.cpu.mmu.set_addr(0xc000, 0x34)
+        self.cpu.mmu.set_addr(0xc001, 0x12)
+
+        self.cpu.pop_reg16('bc')()
+
+        self.assertEqual(self.cpu.sp, 0xc002)
+        self.assertEqual(self.cpu.get_reg16('bc'), 0x1234)
+
+    def test_ldh_regAtoaddr8(self):
+        # JOYP register---bits 4 and 5 are writable
+        self.cpu.pc = 0xc000
+        self.cpu.mmu.set_addr(0xc000, 0x00)
+        self.cpu.set_reg8('a', 0x30)
+
+        self.cpu.ldh_regAtoaddr8()
+
+        # Bits 0-3 indicate pressed buttons (active low)
+        self.assertEqual(self.cpu.mmu.get_addr(0xff00), 0x30 | 0x0f)
+
+    def test_ldh_addr8toregA(self):
+        self.cpu.pc = 0xc000
+        self.cpu.mmu.set_addr(0xc000, 0x00)
+        # JOYP register---bits 4 and 5 are writable
+        self.cpu.mmu.set_addr(0xff00, 0x30)
+
+        self.cpu.ldh_addr8toregA()
+
+        # Bits 0-3 indicate pressed buttons (active low)
+        self.assertEqual(self.cpu.get_reg8('a'), 0x30 | 0x0f)
+
+    def test_ldh_regAtoaddrC(self):
+        # JOYP register---bits 4 and 5 are writable
+        self.cpu.set_reg8('a', 0x30)
+        self.cpu.set_reg8('c', 0x00)
+
+        self.cpu.ldh_regAtoaddrC()
+
+        # Bits 0-3 indicate pressed buttons (active low)
+        self.assertEqual(self.cpu.mmu.get_addr(0xff00), 0x30 | 0x0f)
+
+    def test_ldh_addrCtoregA(self):
+        # JOYP register---bits 4 and 5 are writable
+        self.cpu.mmu.set_addr(0xff00, 0x30)
+        self.cpu.set_reg8('c', 0x00)
+
+        self.cpu.ldh_addrCtoregA()
+
+        # Bits 0-3 indicate pressed buttons (active low)
+        self.assertEqual(self.cpu.get_reg8('a'), 0x30 | 0x0f)
+
+
 class TestZ80ALU(unittest.TestCase):
     def setUp(self):
         self.cpu = slowboy.z80.Z80()
@@ -1169,7 +1232,15 @@ class TestZ80Control(unittest.TestCase):
         self.assertEqual(self.cpu.sp, 0xd002)
 
     def test_reti(self):
-        self.fail('not implemented: test_reti')
+        self.cpu.pc = 0x1234
+        self.cpu.sp = 0xd000
+        self.cpu.mmu.set_addr(0xd000, 0x00)
+        self.cpu.mmu.set_addr(0xd001, 0xc0)
+
+        self.cpu.reti()
+
+        self.assertEqual(self.cpu.get_pc(), 0xc000)
+        self.assertEqual(self.cpu.sp, 0xd002)
 
     def test_call_imm16addr(self):
         self.cpu.pc = 0x1234

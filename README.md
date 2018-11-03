@@ -15,6 +15,10 @@ See `notes/performance.md` for some thoughts on speeding up the emulator.
 
 An eventual goal is improving the debugger---see `notes/debugging.md`.
 
+### Test ROMs
+
+* Test interrupts
+
 ## Installation
 
 If you install this emulator, it probably won't play very many games. Here are
@@ -65,7 +69,8 @@ $ pytest
 Additionally, if you have [coverage][coverage] installed, you can use that:
 
 ```
-$ coverage --source slowboy -m unittest discover tests
+$ coverage run --source slowboy -m unittest discover tests
+$ coverage html
 ```
 
 [coverage]: https://pypi.python.org/pypi/coverage/

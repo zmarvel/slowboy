@@ -163,7 +163,7 @@ class Z80(object):
                 0x06: Op(self.ld_imm8toreg8('b'), 8, 'ld b, d8'),
                 0x16: Op(self.ld_imm8toreg8('d'), 8, 'ld d, d8'),
                 0x26: Op(self.ld_imm8toreg8('h'), 8, 'ld h, d8'),
-                0x36: Op(self.ld_imm8toreg16addr('hl'), 12, 'ld (hl), d8'),
+                0x36: Op(self.ld_imm8toaddrHL, 12, 'ld (hl), d8'),
 
                 0x08: Op(self.ld_sptoimm16addr, 8, 'ld (a16), sp'),
 
@@ -826,8 +826,8 @@ class Z80(object):
             pc = self.pc
             hi = (pc >> 8) & 0xff
             lo = pc & 0xff
-            self.mmu.set_addr(self.sp, lo)
             self.mmu.set_addr(self.sp-1, hi)
+            self.mmu.set_addr(self.sp-2, lo)
             self.sp -= 2
             self._in_interrupt = True
             self.pc = 0x0040 + interrupt.value*8
@@ -1082,15 +1082,6 @@ class Z80(object):
             self.mmu.set_addr(addr, self.sp >> 8)
             self.mmu.set_addr(addr + 1, self.sp & 0xff)
         return ld
-
-    def ld_imm8toreg16addr(self, reg16):
-
-        def ld():
-            imm8 = self.fetch()
-            addr16 = self.get_reg16('hl')
-            self.mmu.set_addr(addr16, imm8)
-        return ld
-
 
     def ld_imm8toaddrHL(self):
         """0x36"""
@@ -2663,15 +2654,6 @@ class Z80(object):
         self.pc = (hi << 8) | lo
         self.sp = self.sp + 2
         self._in_interrupt = False
-
-        return
-
-        if self._saved_pc is None:
-            raise Z80Error('reti expected _saved_pc != None')
-
-        self.pc = self._saved_pc
-        self._saved_pc = None
-        self.interrupt_controller.ei()
 
     def call_imm16addr(self, cond: str=None):
         """Returns a function that, based on :py:data:cond, pushes the current

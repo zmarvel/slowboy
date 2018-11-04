@@ -293,7 +293,7 @@ class Z80(object):
                 0xbb: Op(self.cp_reg8toreg8('a', 'e'), 4, 'cp e'),
                 0xbc: Op(self.cp_reg8toreg8('a', 'h'), 4, 'cp h'),
                 0xbd: Op(self.cp_reg8toreg8('a', 'l'), 4, 'cp l'),
-                0xbe: Op(self.cp_reg8toreg16addr('a', 'hl'), 8, 'cp (hl)'),
+                0xbe: Op(self.cp_regAtoregHLaddr, 8, 'cp (hl)'),
                 0xbf: Op(self.cp_reg8toreg8('a', 'a'), 4, 'cp a'),
                 0xc6: Op(self.add_imm8toreg8('a'), 8, 'add a, d8'),
                 0xd6: Op(self.sub_imm8fromreg8('a'), 8, 'sub a, d8'),
@@ -305,20 +305,20 @@ class Z80(object):
                 0xee: Op(self.xor_imm8(), 8, 'xor d8'),
                 0xfe: Op(self.cp_imm8toregA, 8, 'cp d8'),
 
-                0xe8: Op(self.add_imm8toregSP(), 16, 'add sp, d8'),
+                0xe8: Op(self.add_imm8toregSP, 16, 'add sp, d8'),
 
                 0x09: Op(self.add_reg16toregHL('bc'), 8, 'add hl, bc'),
                 0x19: Op(self.add_reg16toregHL('de'), 8, 'add hl, de'),
                 0x29: Op(self.add_reg16toregHL('hl'), 8, 'add hl, hl'),
                 0x39: Op(self.add_reg16toregHL('sp'), 8, 'add hl, sp'),
 
-                0x07: Op(self.rlca, 4, 'rlca'),
-                0x17: Op(self.rla, 4, 'rla'),
+                0x07: Op(self.rlc_reg8('a'), 4, 'rlca'),
+                0x17: Op(self.rl_reg8('a'), 4, 'rla'),
                 0x27: Op(self.daa, 4, 'daa'),
                 0x37: Op(self.scf, 4, 'scf'),
 
-                0x0f: Op(self.rrca, 4, 'rrca'),
-                0x1f: Op(self.rra, 4, 'rra'),
+                0x0f: Op(self.rrc_reg8('a'), 4, 'rrca'),
+                0x1f: Op(self.rr_reg8('a'), 4, 'rra'),
                 0x2f: Op(self.cpl, 4, 'cpl'),
                 0x3f: Op(self.ccf, 4, 'ccl'),
 
@@ -369,7 +369,7 @@ class Z80(object):
             0x03: Op(self.rlc_reg8('e'), 8, 'rlc e'),
             0x04: Op(self.rlc_reg8('h'), 8, 'rlc h'),
             0x05: Op(self.rlc_reg8('l'), 8, 'rlc l'),
-            0x06: Op(self.rlc_reg16addr('hl'), 16, 'rlc (hl)'),
+            0x06: Op(self.rlc_regHLaddr, 16, 'rlc (hl)'),
             0x07: Op(self.rlc_reg8('a'), 8, 'rlc a'),
 
             0x08: Op(self.rrc_reg8('b'), 8, 'rrc b'),
@@ -378,7 +378,7 @@ class Z80(object):
             0x0b: Op(self.rrc_reg8('e'), 8, 'rrc e'),
             0x0c: Op(self.rrc_reg8('h'), 8, 'rrc h'),
             0x0d: Op(self.rrc_reg8('l'), 8, 'rrc l'),
-            0x0e: Op(self.rrc_reg16addr('hl'), 16, 'rrc (hl)'),
+            0x0e: Op(self.rrc_regHLaddr, 16, 'rrc (hl)'),
             0x0f: Op(self.rrc_reg8('a'), 8, 'rrc a'),
 
             0x10: Op(self.rl_reg8('b'), 8, 'rl b'),
@@ -387,7 +387,7 @@ class Z80(object):
             0x13: Op(self.rl_reg8('e'), 8, 'rl e'),
             0x14: Op(self.rl_reg8('h'), 8, 'rl h'),
             0x15: Op(self.rl_reg8('l'), 8, 'rl l'),
-            0x16: Op(self.rl_reg16addr('hl'), 16, 'rl (hl)'),
+            0x16: Op(self.rl_regHLaddr, 16, 'rl (hl)'),
             0x17: Op(self.rl_reg8('a'), 8, 'rl a'),
 
             0x18: Op(self.rr_reg8('b'), 8, 'rr b'),
@@ -396,7 +396,7 @@ class Z80(object):
             0x1b: Op(self.rr_reg8('e'), 8, 'rr e'),
             0x1c: Op(self.rr_reg8('h'), 8, 'rr h'),
             0x1d: Op(self.rr_reg8('l'), 8, 'rr l'),
-            0x1e: Op(self.rr_reg16addr('hl'), 16, 'rr (hl)'),
+            0x1e: Op(self.rr_regHLaddr, 16, 'rr (hl)'),
             0x1f: Op(self.rr_reg8('a'), 8, 'rr a'),
 
             0x20: Op(self.sla_reg8('b'), 8, 'sla b'),
@@ -405,7 +405,7 @@ class Z80(object):
             0x23: Op(self.sla_reg8('e'), 8, 'sla e'),
             0x24: Op(self.sla_reg8('h'), 8, 'sla h'),
             0x25: Op(self.sla_reg8('l'), 8, 'sla l'),
-            0x26: Op(self.sla_reg16addr('hl'), 16, 'sla (hl)'),
+            0x26: Op(self.sla_regHLaddr, 16, 'sla (hl)'),
             0x27: Op(self.sla_reg8('a'), 8, 'sla a'),
 
             0x28: Op(self.sra_reg8('b'), 8, 'sra b'),
@@ -414,7 +414,7 @@ class Z80(object):
             0x2b: Op(self.sra_reg8('e'), 8, 'sra e'),
             0x2c: Op(self.sra_reg8('h'), 8, 'sra h'),
             0x2d: Op(self.sra_reg8('l'), 8, 'sra l'),
-            0x2e: Op(self.sra_reg16addr('hl'), 16, 'sra (hl)'),
+            0x2e: Op(self.sra_regHLaddr, 16, 'sra (hl)'),
             0x2f: Op(self.sra_reg8('a'), 8, 'sra a'),
 
             0x30: Op(self.swap_reg8('b'), 8, 'swap b'),
@@ -423,7 +423,7 @@ class Z80(object):
             0x33: Op(self.swap_reg8('e'), 8, 'swap e'),
             0x34: Op(self.swap_reg8('h'), 8, 'swap h'),
             0x35: Op(self.swap_reg8('l'), 8, 'swap l'),
-            0x36: Op(self.swap_reg16addr('hl'), 16, 'swap (hl)'),
+            0x36: Op(self.swap_regHLaddr, 16, 'swap (hl)'),
             0x37: Op(self.swap_reg8('a'), 8, 'swap a'),
 
             0x38: Op(self.srl_reg8('b'), 8, 'srl b'),
@@ -432,7 +432,7 @@ class Z80(object):
             0x3b: Op(self.srl_reg8('e'), 8, 'srl e'),
             0x3c: Op(self.srl_reg8('h'), 8, 'srl h'),
             0x3d: Op(self.srl_reg8('l'), 8, 'srl l'),
-            0x3e: Op(self.srl_reg16addr('hl'), 16, 'srl (hl)'),
+            0x3e: Op(self.srl_regHLaddr, 16, 'srl (hl)'),
             0x3f: Op(self.srl_reg8('a'), 8, 'srl a'),
 
             0x40: Op(self.bit_reg8(0, 'b'), 8, 'bit 0, b'),
@@ -441,7 +441,7 @@ class Z80(object):
             0x43: Op(self.bit_reg8(0, 'e'), 8, 'bit 0, e'),
             0x44: Op(self.bit_reg8(0, 'h'), 8, 'bit 0, h'),
             0x45: Op(self.bit_reg8(0, 'l'), 8, 'bit 0, l'),
-            0x46: Op(self.bit_reg16addr(0, 'hl'), 16, 'bit 0, (hl)'),
+            0x46: Op(self.bit_regHLaddr(0), 16, 'bit 0, (hl)'),
             0x47: Op(self.bit_reg8(0, 'a'), 8, 'bit 0, a'),
 
             0x48: Op(self.bit_reg8(1, 'b'), 8, 'bit 1, b'),
@@ -450,7 +450,7 @@ class Z80(object):
             0x4b: Op(self.bit_reg8(1, 'e'), 8, 'bit 1, e'),
             0x4c: Op(self.bit_reg8(1, 'h'), 8, 'bit 1, h'),
             0x4d: Op(self.bit_reg8(1, 'l'), 8, 'bit 1, l'),
-            0x4e: Op(self.bit_reg16addr(1, 'hl'), 16, 'bit 1, (hl)'),
+            0x4e: Op(self.bit_regHLaddr(1), 16, 'bit 1, (hl)'),
             0x4f: Op(self.bit_reg8(1, 'a'), 8, 'bit 1, a'),
 
             0x50: Op(self.bit_reg8(2, 'b'), 8, 'bit 2, b'),
@@ -459,7 +459,7 @@ class Z80(object):
             0x53: Op(self.bit_reg8(2, 'e'), 8, 'bit 2, e'),
             0x54: Op(self.bit_reg8(2, 'h'), 8, 'bit 2, h'),
             0x55: Op(self.bit_reg8(2, 'l'), 8, 'bit 2, l'),
-            0x56: Op(self.bit_reg16addr(2, 'hl'), 16, 'bit 2, (hl)'),
+            0x56: Op(self.bit_regHLaddr(2), 16, 'bit 2, (hl)'),
             0x57: Op(self.bit_reg8(2, 'a'), 8, 'bit 2, a'),
 
             0x58: Op(self.bit_reg8(3, 'b'), 8, 'bit 3, b'),
@@ -468,7 +468,7 @@ class Z80(object):
             0x5b: Op(self.bit_reg8(3, 'e'), 8, 'bit 3, e'),
             0x5c: Op(self.bit_reg8(3, 'h'), 8, 'bit 3, h'),
             0x5d: Op(self.bit_reg8(3, 'l'), 8, 'bit 3, l'),
-            0x5e: Op(self.bit_reg16addr(3, 'hl'), 16, 'bit 3, (hl)'),
+            0x5e: Op(self.bit_regHLaddr(3), 16, 'bit 3, (hl)'),
             0x5f: Op(self.bit_reg8(3, 'a'), 8, 'bit 3, a'),
 
             0x60: Op(self.bit_reg8(4, 'b'), 8, 'bit 4, b'),
@@ -477,7 +477,7 @@ class Z80(object):
             0x63: Op(self.bit_reg8(4, 'e'), 8, 'bit 4, e'),
             0x64: Op(self.bit_reg8(4, 'h'), 8, 'bit 4, h'),
             0x65: Op(self.bit_reg8(4, 'l'), 8, 'bit 4, l'),
-            0x66: Op(self.bit_reg16addr(4, 'hl'), 16, 'bit 4, (hl)'),
+            0x66: Op(self.bit_regHLaddr(4), 16, 'bit 4, (hl)'),
             0x67: Op(self.bit_reg8(4, 'a'), 8, 'bit 4, a'),
 
             0x68: Op(self.bit_reg8(5, 'b'), 8, 'bit 5, b'),
@@ -486,7 +486,7 @@ class Z80(object):
             0x6b: Op(self.bit_reg8(5, 'e'), 8, 'bit 5, e'),
             0x6c: Op(self.bit_reg8(5, 'h'), 8, 'bit 5, h'),
             0x6d: Op(self.bit_reg8(5, 'l'), 8, 'bit 5, l'),
-            0x6e: Op(self.bit_reg16addr(5, 'hl'), 16, 'bit 5, (hl)'),
+            0x6e: Op(self.bit_regHLaddr(5), 16, 'bit 5, (hl)'),
             0x6f: Op(self.bit_reg8(5, 'a'), 8, 'bit 5, a'),
 
             0x70: Op(self.bit_reg8(6, 'b'), 8, 'bit 6, b'),
@@ -495,7 +495,7 @@ class Z80(object):
             0x73: Op(self.bit_reg8(6, 'e'), 8, 'bit 6, e'),
             0x74: Op(self.bit_reg8(6, 'h'), 8, 'bit 6, h'),
             0x75: Op(self.bit_reg8(6, 'l'), 8, 'bit 6, l'),
-            0x76: Op(self.bit_reg16addr(6, 'hl'), 16, 'bit 6, (hl)'),
+            0x76: Op(self.bit_regHLaddr(6), 16, 'bit 6, (hl)'),
             0x77: Op(self.bit_reg8(6, 'a'), 8, 'bit 6, a'),
 
             0x78: Op(self.bit_reg8(7, 'b'), 8, 'bit 7, b'),
@@ -504,7 +504,7 @@ class Z80(object):
             0x7b: Op(self.bit_reg8(7, 'e'), 8, 'bit 7, e'),
             0x7c: Op(self.bit_reg8(7, 'h'), 8, 'bit 7, h'),
             0x7d: Op(self.bit_reg8(7, 'l'), 8, 'bit 7, l'),
-            0x7e: Op(self.bit_reg16addr(7, 'hl'), 16, 'bit 7, (hl)'),
+            0x7e: Op(self.bit_regHLaddr(7), 16, 'bit 7, (hl)'),
             0x7f: Op(self.bit_reg8(7, 'a'), 8, 'bit 7, a'),
 
             0x80: Op(self.res_reg8(0, 'b'), 8, 'res 0, b'),
@@ -513,7 +513,7 @@ class Z80(object):
             0x83: Op(self.res_reg8(0, 'e'), 8, 'res 0, e'),
             0x84: Op(self.res_reg8(0, 'h'), 8, 'res 0, h'),
             0x85: Op(self.res_reg8(0, 'l'), 8, 'res 0, l'),
-            0x86: Op(self.res_reg16addr(0, 'hl'), 16, 'res 0, (hl)'),
+            0x86: Op(self.res_regHLaddr(0), 16, 'res 0, (hl)'),
             0x87: Op(self.res_reg8(0, 'a'), 8, 'res 0, a'),
 
             0x88: Op(self.res_reg8(1, 'b'), 8, 'res 1, b'),
@@ -522,7 +522,7 @@ class Z80(object):
             0x8b: Op(self.res_reg8(1, 'e'), 8, 'res 1, e'),
             0x8c: Op(self.res_reg8(1, 'h'), 8, 'res 1, h'),
             0x8d: Op(self.res_reg8(1, 'l'), 8, 'res 1, l'),
-            0x8e: Op(self.res_reg16addr(1, 'hl'), 16, 'res 1, (hl)'),
+            0x8e: Op(self.res_regHLaddr(1), 16, 'res 1, (hl)'),
             0x8f: Op(self.res_reg8(1, 'a'), 8, 'res 1, a'),
 
             0x90: Op(self.res_reg8(2, 'b'), 8, 'res 2, b'),
@@ -531,7 +531,7 @@ class Z80(object):
             0x93: Op(self.res_reg8(2, 'e'), 8, 'res 2, e'),
             0x94: Op(self.res_reg8(2, 'h'), 8, 'res 2, h'),
             0x95: Op(self.res_reg8(2, 'l'), 8, 'res 2, l'),
-            0x96: Op(self.res_reg16addr(2, 'hl'), 16, 'res 2, (hl)'),
+            0x96: Op(self.res_regHLaddr(2), 16, 'res 2, (hl)'),
             0x97: Op(self.res_reg8(2, 'a'), 8, 'res 2, a'),
 
             0x98: Op(self.res_reg8(3, 'b'), 8, 'res 3, b'),
@@ -540,7 +540,7 @@ class Z80(object):
             0x9b: Op(self.res_reg8(3, 'e'), 8, 'res 3, e'),
             0x9c: Op(self.res_reg8(3, 'h'), 8, 'res 3, h'),
             0x9d: Op(self.res_reg8(3, 'l'), 8, 'res 3, l'),
-            0x9e: Op(self.res_reg16addr(3, 'hl'), 16, 'res 3, (hl)'),
+            0x9e: Op(self.res_regHLaddr(3), 16, 'res 3, (hl)'),
             0x9f: Op(self.res_reg8(3, 'a'), 8, 'res 3, a'),
 
             0xa0: Op(self.res_reg8(4, 'b'), 8, 'res 4, b'),
@@ -549,7 +549,7 @@ class Z80(object):
             0xa3: Op(self.res_reg8(4, 'e'), 8, 'res 4, e'),
             0xa4: Op(self.res_reg8(4, 'h'), 8, 'res 4, h'),
             0xa5: Op(self.res_reg8(4, 'l'), 8, 'res 4, l'),
-            0xa6: Op(self.res_reg16addr(4, 'hl'), 16, 'res 4, (hl)'),
+            0xa6: Op(self.res_regHLaddr(4), 16, 'res 4, (hl)'),
             0xa7: Op(self.res_reg8(4, 'a'), 8, 'res 4, a'),
 
             0xa8: Op(self.res_reg8(5, 'b'), 8, 'res 5, b'),
@@ -558,7 +558,7 @@ class Z80(object):
             0xab: Op(self.res_reg8(5, 'e'), 8, 'res 5, e'),
             0xac: Op(self.res_reg8(5, 'h'), 8, 'res 5, h'),
             0xad: Op(self.res_reg8(5, 'l'), 8, 'res 5, l'),
-            0xae: Op(self.res_reg16addr(5, 'hl'), 16, 'res 5, (hl)'),
+            0xae: Op(self.res_regHLaddr(5), 16, 'res 5, (hl)'),
             0xaf: Op(self.res_reg8(5, 'a'), 8, 'res 5, a'),
 
             0xb0: Op(self.res_reg8(6, 'b'), 8, 'res 6, b'),
@@ -567,7 +567,7 @@ class Z80(object):
             0xb3: Op(self.res_reg8(6, 'e'), 8, 'res 6, e'),
             0xb4: Op(self.res_reg8(6, 'h'), 8, 'res 6, h'),
             0xb5: Op(self.res_reg8(6, 'l'), 8, 'res 6, l'),
-            0xb6: Op(self.res_reg16addr(6, 'hl'), 16, 'res 6, (hl)'),
+            0xb6: Op(self.res_regHLaddr(6), 16, 'res 6, (hl)'),
             0xb7: Op(self.res_reg8(6, 'a'), 8, 'res 6, a'),
 
             0xb8: Op(self.res_reg8(7, 'b'), 8, 'res 7, b'),
@@ -576,7 +576,7 @@ class Z80(object):
             0xbb: Op(self.res_reg8(7, 'e'), 8, 'res 7, e'),
             0xbc: Op(self.res_reg8(7, 'h'), 8, 'res 7, h'),
             0xbd: Op(self.res_reg8(7, 'l'), 8, 'res 7, l'),
-            0xbe: Op(self.res_reg16addr(7, 'hl'), 16, 'res 7, (hl)'),
+            0xbe: Op(self.res_regHLaddr(7), 16, 'res 7, (hl)'),
             0xbf: Op(self.res_reg8(7, 'a'), 8, 'res 7, a'),
 
             0xc0: Op(self.set__reg8(0, 'b'), 8, 'set 0, b'),
@@ -585,7 +585,7 @@ class Z80(object):
             0xc3: Op(self.set__reg8(0, 'e'), 8, 'set 0, e'),
             0xc4: Op(self.set__reg8(0, 'h'), 8, 'set 0, h'),
             0xc5: Op(self.set__reg8(0, 'l'), 8, 'set 0, l'),
-            0xc6: Op(self.set_reg16addr(0, 'hl'), 16, 'set 0, (hl)'),
+            0xc6: Op(self.set_regHLaddr(0), 16, 'set 0, (hl)'),
             0xc7: Op(self.set__reg8(0, 'a'), 8, 'set 0, a'),
 
             0xc8: Op(self.set__reg8(1, 'b'), 8, 'set 1, b'),
@@ -594,7 +594,7 @@ class Z80(object):
             0xcb: Op(self.set__reg8(1, 'e'), 8, 'set 1, e'),
             0xcc: Op(self.set__reg8(1, 'h'), 8, 'set 1, h'),
             0xcd: Op(self.set__reg8(1, 'l'), 8, 'set 1, l'),
-            0xce: Op(self.set_reg16addr(1, 'hl'), 16, 'set 1, (hl)'),
+            0xce: Op(self.set_regHLaddr(1), 16, 'set 1, (hl)'),
             0xcf: Op(self.set__reg8(1, 'a'), 8, 'set 1, a'),
 
             0xd0: Op(self.set__reg8(2, 'b'), 8, 'set 2, b'),
@@ -603,7 +603,7 @@ class Z80(object):
             0xd3: Op(self.set__reg8(2, 'e'), 8, 'set 2, e'),
             0xd4: Op(self.set__reg8(2, 'h'), 8, 'set 2, h'),
             0xd5: Op(self.set__reg8(2, 'l'), 8, 'set 2, l'),
-            0xd6: Op(self.set_reg16addr(2, 'hl'), 16, 'set 2, (hl)'),
+            0xd6: Op(self.set_regHLaddr(2), 16, 'set 2, (hl)'),
             0xd7: Op(self.set__reg8(2, 'a'), 8, 'set 2, a'),
 
             0xd8: Op(self.set__reg8(3, 'b'), 8, 'set 3, b'),
@@ -612,7 +612,7 @@ class Z80(object):
             0xdb: Op(self.set__reg8(3, 'e'), 8, 'set 3, e'),
             0xdc: Op(self.set__reg8(3, 'h'), 8, 'set 3, h'),
             0xdd: Op(self.set__reg8(3, 'l'), 8, 'set 3, l'),
-            0xde: Op(self.set_reg16addr(3, 'hl'), 16, 'set 3, (hl)'),
+            0xde: Op(self.set_regHLaddr(3), 16, 'set 3, (hl)'),
             0xdf: Op(self.set__reg8(3, 'a'), 8, 'set 3, a'),
 
             0xe0: Op(self.set__reg8(4, 'b'), 8, 'set 4, b'),
@@ -621,7 +621,7 @@ class Z80(object):
             0xe3: Op(self.set__reg8(4, 'e'), 8, 'set 4, e'),
             0xe4: Op(self.set__reg8(4, 'h'), 8, 'set 4, h'),
             0xe5: Op(self.set__reg8(4, 'l'), 8, 'set 4, l'),
-            0xe6: Op(self.set_reg16addr(4, 'hl'), 16, 'set 4, (hl)'),
+            0xe6: Op(self.set_regHLaddr(4), 16, 'set 4, (hl)'),
             0xe7: Op(self.set__reg8(4, 'a'), 8, 'set 4, a'),
 
             0xe8: Op(self.set__reg8(5, 'b'), 8, 'set 5, b'),
@@ -630,7 +630,7 @@ class Z80(object):
             0xeb: Op(self.set__reg8(5, 'e'), 8, 'set 5, e'),
             0xec: Op(self.set__reg8(5, 'h'), 8, 'set 5, h'),
             0xed: Op(self.set__reg8(5, 'l'), 8, 'set 5, l'),
-            0xee: Op(self.set_reg16addr(5, 'hl'), 16, 'set 5, (hl)'),
+            0xee: Op(self.set_regHLaddr(5), 16, 'set 5, (hl)'),
             0xef: Op(self.set__reg8(5, 'a'), 8, 'set 5, a'),
 
             0xf0: Op(self.set__reg8(6, 'b'), 8, 'set 6, b'),
@@ -639,7 +639,7 @@ class Z80(object):
             0xf3: Op(self.set__reg8(6, 'e'), 8, 'set 6, e'),
             0xf4: Op(self.set__reg8(6, 'h'), 8, 'set 6, h'),
             0xf5: Op(self.set__reg8(6, 'l'), 8, 'set 6, l'),
-            0xf6: Op(self.set_reg16addr(6, 'hl'), 16, 'set 6, (hl)'),
+            0xf6: Op(self.set_regHLaddr(6), 16, 'set 6, (hl)'),
             0xf7: Op(self.set__reg8(6, 'a'), 8, 'set 6, a'),
 
             0xf8: Op(self.set__reg8(7, 'b'), 8, 'set 7, b'),
@@ -648,7 +648,7 @@ class Z80(object):
             0xfb: Op(self.set__reg8(7, 'e'), 8, 'set 7, e'),
             0xfc: Op(self.set__reg8(7, 'h'), 8, 'set 7, h'),
             0xfd: Op(self.set__reg8(7, 'l'), 8, 'set 7, l'),
-            0xfe: Op(self.set_reg16addr(7, 'hl'), 16, 'set 7, (hl)'),
+            0xfe: Op(self.set_regHLaddr(7), 16, 'set 7, (hl)'),
             0xff: Op(self.set__reg8(7, 'a'), 8, 'set 7, a'),
         }
 
@@ -717,7 +717,7 @@ class Z80(object):
     def set_reg16(self, reg16, value):
         reg16 = reg16.lower()
         if reg16 == 'sp':
-            self.sp = value
+            self.sp = value & 0xffff
         elif reg16 == 'af':
             hi = (value >> 8) & 0xff
             self.registers['a'] = hi
@@ -1013,16 +1013,8 @@ class Z80(object):
         return ld
 
     def ld_reg16toreg16(self, src_reg16, dest_reg16):
-        src_reg16 = src_reg16.lower()
-        dest_reg16 = dest_reg16.lower()
-
         def ld():
-            if src_reg16 == 'sp':
-                self.set_reg16(dest_reg16, self.sp)
-            elif dest_reg16 == 'sp':
-                self.sp = self.get_reg16(src_reg16)
-            else:
-                self.set_reg16(dest_reg16, self.get_reg16(src_reg16))
+            self.set_reg16(dest_reg16, self.get_reg16(src_reg16))
         return ld
 
     def ld_imm16addrtoreg8(self, reg8):
@@ -1189,39 +1181,17 @@ class Z80(object):
             self.set_reg16(reg16, result)
         return dec
 
-    def inc_reg16addr(self, reg16):
-        """Increments the value at the address in `reg16`."""
-
-        def inc():
-            addr16 = self.get_reg16(reg16)
-            u8 = self.mmu.get_addr(addr16)
-            result = u8 + 1
-
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            if u8 & 0x0f == 0xf:
-                self.set_halfcarry_flag()
-            else:
-                self.reset_halfcarry_flag()
-
-            self.reset_sub_flag()
-
-            self.mmu.set_addr(addr16, result & 0xff)
-        return inc
-
     def inc_addrHL(self):
         """Increments the value at the address in HL."""
 
         addr16 = self.get_reg16('hl')
-        result = self.mmu.get_addr(addr16) + 1
+        u8 = self.mmu.get_addr(addr16)
+        result = u8 + 1
 
-        if result & 0x100 == 0x100:
-            self.set_carry_flag()
+        if u8 & 0xf == 0xf:
+            self.set_halfcarry_flag()
         else:
-            self.reset_carry_flag()
+            self.reset_halfcarry_flag()
 
         if result & 0xff == 0:
             self.set_zero_flag()
@@ -1354,31 +1324,27 @@ class Z80(object):
         return add
 
     def add_imm8toregSP(self):
-        """Returns a function that adds the given two 8-bit registers.
-        reg8 = reg8 + imm8
+        """Returns a function that an 8-bit immediate to reg SP.
+        SP = SP + imm8
+        """
 
-        :rtype: int → None"""
+        imm8 = self.fetch()
+        sp = self.sp
+        lo = (sp & 0xff) + imm8
+        self.sp = sp + imm8
 
-        def add():
-            imm8 = self.fetch()
-            sp = self.sp
-            lo = (sp & 0xff) + imm8
-            self.sp = (sp & 0xff00) | (lo & 0xff)
+        if (sp & 0xf) + (imm8 & 0xf) > 0xf:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
 
-            if (sp & 0xf) + (imm8 & 0xf) > 0xf:
-                self.set_halfcarry_flag()
-            else:
-                self.reset_halfcarry_flag()
+        if lo > 0xff:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
-            if lo > 0xff:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
-
-            self.reset_sub_flag()
-            self.reset_zero_flag()
-
-        return add
+        self.reset_sub_flag()
+        self.reset_zero_flag()
 
     def add_reg16addrtoreg8(self, reg16, reg8, carry=False):
         """Returns a function that adds (reg16) to reg8 and stores the result
@@ -1394,9 +1360,8 @@ class Z80(object):
             src_u8 = self.mmu.get_addr(addr)
             dest_u8 = self.get_reg8(reg8)
 
-            result = src_u8 + dest_u8
-            if carry:
-                result+= self.get_carry_flag()
+            c = self.get_carry_flag() if carry else 0
+            result = src_u8 + dest_u8 + c
 
             self.set_reg8(reg8, result)
 
@@ -1405,7 +1370,7 @@ class Z80(object):
             else:
                 self.reset_zero_flag()
 
-            if (dest_u8 & 0x0f) + (src_u8 & 0x0f) > 0x0f:
+            if (dest_u8 & 0x0f) + (src_u8 & 0x0f) + c > 0x0f:
                 self.set_halfcarry_flag()
             else:
                 self.reset_halfcarry_flag()
@@ -1469,10 +1434,8 @@ class Z80(object):
             imm8 = self.fetch()
             u8 = self.get_reg8(reg8)
 
-            result = u8 + (((imm8 ^ 0xff) + 1) & 0xff)
-            if carry:
-                # result -= 1
-                result += (self.get_carry_flag() ^ 0xff) + 1
+            c = self.get_carry_flag() if carry else 0
+            result = u8 + ((((imm8 + c) ^ 0xff) + 1) & 0xff)
 
             self.set_reg8(reg8, result)
 
@@ -1509,10 +1472,8 @@ class Z80(object):
             x = self.get_reg8(reg8)
             y = self.mmu.get_addr(imm16)
 
-            result = x + (((y ^ 0xff) + 1) & 0xff)
-            if carry:
-                # result -= 1
-                result += (self.get_carry_flag() ^ 0xff) + 1
+            c = self.get_carry_flag() if carry else 0
+            result = x + ((((y + c) ^ 0xff) + 1) & 0xff)
 
             self.set_reg8(reg8, result)
 
@@ -1521,10 +1482,10 @@ class Z80(object):
             else:
                 self.reset_zero_flag()
 
-            if ((x & 0x0f) + ((y ^ 0xff) & 0x0f) + 1) > 0x0f:
-                self.reset_halfcarry_flag()
-            else:
+            if (x & 0x0f) < ((y + c) & 0x0f):
                 self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
 
             self.set_sub_flag()
 
@@ -1550,9 +1511,8 @@ class Z80(object):
             x = self.get_reg8(reg8)
             y = self.mmu.get_addr(self.get_reg16(reg16))
 
-            result = x + (((y ^ 0xff) + 1) & 0xff)
-            if carry:
-                result += 0xff
+            c = self.get_carry_flag() if carry else 0
+            result = x + ((((y + c) ^ 0xff) + 1) & 0xff)
 
             self.set_reg8(reg8, result)
 
@@ -1561,10 +1521,10 @@ class Z80(object):
             else:
                 self.reset_zero_flag()
 
-            if ((x & 0x0f) + ((y ^ 0xff) & 0x0f) + 1) > 0x0f:
-                self.reset_halfcarry_flag()
-            else:
+            if (x & 0x0f) < ((y + c) & 0x0f):
                 self.set_halfcarry_flag()
+            else:
+                self.reset_halfcarry_flag()
 
             self.set_sub_flag()
 
@@ -1767,28 +1727,6 @@ class Z80(object):
             self.reset_sub_flag()
         return bxor
 
-    def xor_imm16addr(self):
-        """Returns a function that performs a bitwise XOR between the value at
-        the address given by its 16-bit immediate parameter and A, then stores
-        the result in A.
-
-        :rtype: int → None"""
-
-        def bxor():
-            imm16 = self.fetch2()
-            result = self.get_reg8('a') ^ self.mmu.get_addr(imm16)
-            self.set_reg8('a', result)
-
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            self.reset_carry_flag()
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
-        return bxor
-
     def xor_reg16addr(self, reg16):
         """Returns a function that performs a bitwise XOR between the value at
         the address in :py:data:reg16 and A, then stores the result in A.
@@ -1843,66 +1781,31 @@ class Z80(object):
                 self.reset_carry_flag()
         return cp
 
-    def cp_reg8toimm16addr(self, reg8):
-        """Returns a function that takes a 16-bit immediate and compares the
-        given :py:data:reg8 with the value at the address given by this
-        immediate, then sets the appropriate flags as specified in
-        :py:method:cp_reg8toreg8.
+    def cp_regAtoregHLaddr(self):
+        """Compares register A to the address in double register HL, then
+        sets the appropriate flags as specified in :py:method:cp_reg8toreg8.
 
         :param reg8: single register
-        :rtype: int → None"""
+        :param reg16: double register holding an address"""
 
-        def cp():
-            imm16 = self.fetch2()
-            result = self.get_reg8(reg8) - self.mmu.get_addr(imm16)
+        result = self.get_reg8('a') - self.mmu.get_addr(self.get_reg16('hl'))
 
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
-            if result > 0:
-                self.set_halfcarry_flag()
-            else:
-                self.reset_halfcarry_flag()
+        if result > 0:
+            self.set_halfcarry_flag()
+        else:
+            self.reset_halfcarry_flag()
 
-            self.set_sub_flag()
+        self.set_sub_flag()
 
-            if result < 0:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
-        return cp
-
-    def cp_reg8toreg16addr(self, reg8, reg16):
-        """Returns a function that compares the given :py:data:reg8 with the
-        value at address given by :py:data:reg16, then sets the appropriate
-        flags as specified in :py:method:cp_reg8toreg8.
-
-        :param reg8: single register
-        :param reg16: double register holding an address
-        :rtype: int → None"""
-
-        def cp():
-            result = self.get_reg8(reg8) - self.mmu.get_addr(self.get_reg16(reg16))
-
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            if result > 0:
-                self.set_halfcarry_flag()
-            else:
-                self.reset_halfcarry_flag()
-
-            self.set_sub_flag()
-
-            if result < 0:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
-        return cp
+        if result < 0:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
     def cp_imm8toregA(self):
         """Compares 8-bit immediate to value in register A, then sets appropriate flags.
@@ -1918,14 +1821,14 @@ class Z80(object):
         else:
             self.reset_zero_flag()
 
-        if (imm8 & 0xf) > (regA & 0x0f):
+        if result > 0:
             self.set_halfcarry_flag()
         else:
             self.reset_halfcarry_flag()
 
         self.set_sub_flag()
 
-        if regA < imm8:
+        if result < 0:
             self.set_carry_flag()
         else:
             self.reset_carry_flag()
@@ -1933,7 +1836,7 @@ class Z80(object):
     def rl_reg8(self, reg8):
         """Returns a function that shift :py:data:reg8 left 1, places the old
         bit 7 in the carry flag, and places old carry flag in bit 0.
-        
+
         :param reg8: the number of bits to shift
         :rtype None → None"""
 
@@ -1958,50 +1861,31 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return rl
 
-    def rla(self):
+    def rl_regHLaddr(self):
         last_carry = self.get_carry_flag()
-        reg = self.get_reg8('a')
-        result = (reg << 1) | last_carry
+        reg = self.get_reg16('hl')
+        d8 = self.mmu.get_addr(reg)
+        result = (d8 << 1) | last_carry
 
-        self.reset_zero_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
         self.reset_halfcarry_flag()
         self.reset_sub_flag()
 
-        if reg & 0x80 == 0x80:
+        if d8 & 0x80 == 0x80:
             self.set_carry_flag()
         else:
             self.reset_carry_flag()
 
-        self.set_reg8('a', result)
-
-    def rl_reg16addr(self, reg16):
-        def rl():
-            last_carry = self.get_carry_flag()
-            reg = self.get_reg16(reg16)
-            d8 = self.mmu.get_addr(reg)
-            result = (d8 << 1) | last_carry
-
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
-
-            if d8 & 0x80 == 0x80:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
-
-            self.mmu.set_addr(reg, result)
-        return rl
+        self.mmu.set_addr(reg, result)
 
     def rlc_reg8(self, reg8):
-        """Returns a function that shifts :py:data:reg8 left 1, then 
+        """Returns a function that shifts :py:data:reg8 left 1, then
         places the old bit 7 in the carry flag and bit 0.
-        
+
         :param reg8: number of bits to rotate
         :rtype None → None"""
 
@@ -2025,48 +1909,30 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return rlc
 
-    def rlca(self):
-        reg = self.get_reg8('a')
-        result = (reg << 1) | (reg >> 7)
+    def rlc_regHLaddr(self):
+        reg = self.get_reg16('hl')
+        d8 = self.mmu.get_addr(reg)
+        result = (d8 << 1) | (d8 >> 7)
 
-        self.reset_zero_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
         self.reset_halfcarry_flag()
         self.reset_sub_flag()
 
-        if reg & 0x80 == 0x80:
+        if result & 0x100 == 0x100:
             self.set_carry_flag()
         else:
             self.reset_carry_flag()
 
-        self.set_reg8('a', result)
-
-    def rlc_reg16addr(self, reg16):
-        def rlc():
-            reg = self.get_reg16(reg16)
-            d8 = self.mmu.get_addr(reg)
-            result = (d8 << 1) | (d8 >> 7)
-
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
-
-            if result & 0x100 == 0x100:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
-
-            self.mmu.set_addr(reg, result)
-        return rlc
+        self.mmu.set_addr(reg, result)
 
     def rr_reg8(self, reg8):
         """Returns a function that shifts :py:data:reg8 right 1, places the old
         bit 0 in the carry flag, and place old carry in bit 7.
-        
+
         :param reg8: the operand single register
         :rtype: None → None"""
 
@@ -2091,45 +1957,26 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return rr
 
-    def rra(self):
+    def rr_regHLaddr(self):
         last_carry = self.get_carry_flag()
-        reg = self.get_reg8('a')
-        result = (reg >> 1) | (last_carry << 7)
+        reg = self.get_reg16('hl')
+        d8 = self.mmu.get_addr(reg)
+        result = (d8 >> 1) | (last_carry << 7)
 
-        self.reset_zero_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
         self.reset_halfcarry_flag()
         self.reset_sub_flag()
 
-        if reg & 0x01 == 0x01:
+        if d8 & 0x01 == 0x01:
             self.set_carry_flag()
         else:
             self.reset_carry_flag()
 
-        self.set_reg8('a', result)
-
-    def rr_reg16addr(self, reg16):
-        def rr():
-            last_carry = self.get_carry_flag()
-            reg = self.get_reg16(reg16)
-            d8 = self.mmu.get_addr(reg)
-            result = (d8 >> 1) | (last_carry << 7)
-
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
-
-            if d8 & 0x01 == 0x01:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
-
-            self.mmu.set_addr(reg, result)
-        return rr
+        self.mmu.set_addr(reg, result)
 
     def rrc_reg8(self, reg8):
         """0x0f, CB 0x08-0x0f
@@ -2155,44 +2002,25 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return rrc
 
-    def rrca(self):
-        reg = self.get_reg8('a')
-        result = (reg >> 1) | ((reg << 7) & 0x80)
+    def rrc_regHLaddr(self):
+        reg = self.get_reg16('hl')
+        d8 = self.mmu.get_addr(reg)
+        result = (d8 >> 1) | ((d8 << 7) & 0x80)
 
-        self.reset_zero_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
         self.reset_halfcarry_flag()
         self.reset_sub_flag()
 
-        if reg & 0x01 == 0x01:
+        if d8 & 0x01 == 0x01:
             self.set_carry_flag()
         else:
             self.reset_carry_flag()
 
-        self.set_reg8('a', result)
-
-
-    def rrc_reg16addr(self, reg16):
-        def rrc():
-            reg = self.get_reg16(reg16)
-            d8 = self.mmu.get_addr(reg)
-            result = (d8 >> 1) | ((d8 << 7) & 0x80)
-
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
-
-            if d8 & 0x01 == 0x01:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
-
-            self.mmu.set_addr(reg, result)
-        return rrc
+        self.mmu.set_addr(reg, result)
 
     def sla_reg8(self, reg8):
         """CB 0x20-0x25, 0x27
@@ -2218,35 +2046,33 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return sla
 
-    def sla_reg16addr(self, reg16):
+    def sla_regHLaddr(self):
         """CB 0x20-0x25, 0x27
         Logical shift (addr16) left 1 and place old bit 0 in CF."""
 
-        def sla():
-            addr = self.get_reg16(reg16)
-            reg = self.mmu.get_addr(addr)
-            result = reg << 1
+        addr = self.get_reg16('hl')
+        reg = self.mmu.get_addr(addr)
+        result = reg << 1
 
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
 
-            if (reg >> 7) & 0x01 == 1:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
+        if (reg >> 7) & 0x01 == 1:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
-            self.mmu.set_addr(addr, result)
-        return sla
+        self.mmu.set_addr(addr, result)
 
     def sra_reg8(self, reg8):
         """CB 0x28-0x2d, 0x2f
         Arithmetic shift reg8 right 1 and place old bit 7 in CF."""
-        
+
         def sra():
             reg = self.get_reg8(reg8)
             result = (reg & 0x80) | (reg >> 1)
@@ -2267,30 +2093,28 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return sra
 
-    def sra_reg16addr(self, reg16):
+    def sra_regHLaddr(self):
         """CB 0x20-0x25, 0x27
         Arithmetic shift (addr16) right 1 and place old bit 7 in CF."""
 
-        def sra():
-            addr16 = self.get_reg16(reg16)
-            reg = self.mmu.get_addr(addr16)
-            result = (reg & 0x80) | (reg >> 1)
+        addr16 = self.get_reg16('hl')
+        reg = self.mmu.get_addr(addr16)
+        result = (reg & 0x80) | (reg >> 1)
 
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
 
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
 
-            if reg & 0x01 == 1:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
+        if reg & 0x01 == 1:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
-            self.mmu.set_addr(addr16, result)
-        return sra
+        self.mmu.set_addr(addr16, result)
 
     def swap_reg8(self, reg8):
         def swap():
@@ -2308,22 +2132,20 @@ class Z80(object):
             self.reset_sub_flag()
         return swap
 
-    def swap_reg16addr(self, reg16):
-        def swap():
-            addr = self.get_reg16(reg16)
-            d8 = self.mmu.get_addr(addr)
-            hi = d8 >> 4
-            lo = d8 & 0xf
-            result = (lo << 4) | hi
-            self.mmu.set_addr(addr, result)
-            if d8 == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-            self.reset_carry_flag()
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
-        return swap
+    def swap_regHLaddr(self):
+        addr = self.get_reg16('hl')
+        d8 = self.mmu.get_addr(addr)
+        hi = d8 >> 4
+        lo = d8 & 0xf
+        result = (lo << 4) | hi
+        self.mmu.set_addr(addr, result)
+        if d8 == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+        self.reset_carry_flag()
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
 
     def srl_reg8(self, reg8):
         """Logical shift reg8 right 1 and place old LSb in C"""
@@ -2347,28 +2169,26 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return srl
 
-    def srl_reg16addr(self, reg16):
+    def srl_regHLaddr(self):
         """Logical shift reg8 right 1 and place old LSb in C"""
 
-        def srl():
-            addr = self.get_reg16(reg16)
-            reg = self.mmu.get_addr(addr)
-            result = reg >> 1
+        addr = self.get_reg16('hl')
+        reg = self.mmu.get_addr(addr)
+        result = reg >> 1
 
-            if result & 0xff == 0:
-                self.set_zero_flag()
-            else:
-                self.reset_zero_flag()
-            self.reset_halfcarry_flag()
-            self.reset_sub_flag()
+        if result & 0xff == 0:
+            self.set_zero_flag()
+        else:
+            self.reset_zero_flag()
+        self.reset_halfcarry_flag()
+        self.reset_sub_flag()
 
-            if reg & 0x01 == 1:
-                self.set_carry_flag()
-            else:
-                self.reset_carry_flag()
+        if reg & 0x01 == 1:
+            self.set_carry_flag()
+        else:
+            self.reset_carry_flag()
 
-            self.mmu.set_addr(addr, result)
-        return srl
+        self.mmu.set_addr(addr, result)
 
     def bit_reg8(self, i, reg8):
         def bit():
@@ -2381,11 +2201,11 @@ class Z80(object):
             self.reset_sub_flag()
         return bit
 
-    def bit_reg16addr(self, i, reg16):
+    def bit_regHLaddr(self, i):
         def bit():
-            addr = self.get_reg16(reg16)
+            addr = self.get_reg16('hl')
             d8 = self.mmu.get_addr(addr)
-            if (d8 >> i) & 0x1 == 1:
+            if (d8 >> i) & 0x1 == 0:
                 self.set_zero_flag()
             else:
                 self.reset_zero_flag()
@@ -2400,9 +2220,9 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return res
 
-    def res_reg16addr(self, i, reg16):
+    def res_regHLaddr(self, i):
         def res():
-            addr = self.get_reg16(reg16)
+            addr = self.get_reg16('hl')
             d8 = self.mmu.get_addr(addr)
             result = d8 & ((1 << i) ^ 0xff)
             self.mmu.set_addr(addr, result)
@@ -2415,9 +2235,9 @@ class Z80(object):
             self.set_reg8(reg8, result)
         return set
 
-    def set_reg16addr(self, i, reg16):
+    def set_regHLaddr(self, i):
         def set():
-            addr = self.get_reg16(reg16)
+            addr = self.get_reg16('hl')
             d8 = self.mmu.get_addr(addr)
             result = d8 | (1 << i)
             self.mmu.set_addr(addr, result)
@@ -2432,7 +2252,10 @@ class Z80(object):
         self.set_sub_flag()
 
     def daa(self):
-        """0x27: adjust regA following BCD addition."""
+        """0x27: adjust regA following BCD addition.
+
+        NOTE: This could certainly be simplified, but I just reproduced the
+        table in The Game Boy Programming Manual, p. 110."""
 
         reg = self.get_reg8('a')
 
@@ -2440,7 +2263,6 @@ class Z80(object):
         lo = reg & 0xf
         c = self.get_carry_flag()
         h = self.get_halfcarry_flag()
-        print(hi, lo, c, h)
 
         if self.get_sub_flag() == 0:
             if c == 0 and hi <= 0x9 \
@@ -2469,7 +2291,7 @@ class Z80(object):
                 self.set_carry_flag()
             elif c == 1 and hi <= 0x2 \
                     and h == 0 and lo <= 0x9:
-                result = reg+0x66
+                result = reg+0x60
                 self.set_carry_flag()
             elif c == 1 and hi <= 0x2 \
                     and h == 0 and 0xa <= lo <= 0xf:
@@ -2648,7 +2470,7 @@ class Z80(object):
 
     def reti(self):
         """0xd9 -- reti"""
-        
+
         lo = self.mmu.get_addr(self.sp)
         hi = self.mmu.get_addr(self.sp + 1)
         self.pc = (hi << 8) | lo
@@ -2695,51 +2517,6 @@ class Z80(object):
                     self.mmu.set_addr(sp - 1, pc >> 8)
                     self.mmu.set_addr(sp - 2, pc & 0xff)
                     self.pc = imm16
-                    self.sp = sp - 2
-        return call
-
-    def call_reg16addr(self, reg16, cond=None):
-        """Returns a function that, based on :py:data:cond, pushes the current
-        address in the program counter and jumps to the address in
-        :py:data:reg16.
-
-        :param cond: one of Z, C, S, H
-        :param reg16: address to call
-        :rtype: int → None"""
-
-        pc = self.pc
-        sp = self.sp
-
-        if cond is not None:
-            cond = cond.lower()
-
-        if cond == 'z':
-            def check_cond():
-                return self.get_zero_flag() == 1
-        elif cond == 'c':
-            def check_cond():
-                return self.get_carry_flag() == 1
-        elif cond == 's':
-            def check_cond():
-                return self.get_sub_flag() == 1
-        elif cond == 'h':
-            def check_cond():
-                return self.get_halfcarry_flag() == 1
-        elif cond is not None:
-            raise ValueError('cond must be one of Z, C, S, H')
-
-        if cond is None:
-            def call():
-                self.mmu.set_addr(sp - 1, pc >> 8)
-                self.mmu.set_addr(sp - 2, pc & 0xff)
-                self.pc = self.get_reg16(reg16)
-                self.sp = sp - 2
-        else:
-            def call():
-                if check_cond():
-                    self.mmu.set_addr(sp - 1, pc >> 8)
-                    self.mmu.set_addr(sp - 2, pc & 0xff)
-                    self.pc = self.get_reg16(reg16)
                     self.sp = sp - 2
         return call
 

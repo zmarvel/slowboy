@@ -718,9 +718,9 @@ class Z80(object):
         reg16 = reg16.lower()
         if reg16 == 'sp':
             self.sp = value & 0xffff
-        elif reg16 == 'af':
-            hi = (value >> 8) & 0xff
-            self.registers['a'] = hi
+        # elif reg16 == 'af':
+        #     hi = (value >> 8) & 0xff
+        #     self.registers['a'] = hi
         else:
             hi = (value >> 8) & 0xff
             lo = value & 0xff
@@ -813,11 +813,17 @@ class Z80(object):
         return value
 
     def step(self):
+        """Advance the CPU by one instruction.
+
+        :rtype: bool
+        :return: True if an instruction was executed, False otherwise (if the
+                 CPU is in trace mode or is halted
+        """
         if self.state != State.RUN:
             if self.interrupt_controller.has_interrupt:
                 self.state = State.RUN
             else:
-                return
+                return False
 
         # Only handle one interrupt at a time
         if not self._in_interrupt and self.interrupt_controller.has_interrupt:
@@ -867,22 +873,14 @@ class Z80(object):
         for listener in self.clock_listeners:
             listener.notify(self.clock, op.cycles)
 
+        return True
+
     def go(self):
         self.state = State.RUN
-        while self.state == State.RUN:
-            opcode = self.fetch()
-            print(self.opcode_map[opcode])
+        while self.state != State.STOP:
+            self.step()
 
-            # decode
-            op = self.opcode_map[opcode]
-
-            # execute
-            op.function()
-
-            self.clock += op.cycles
-
-            for listener in self.clock_listeners:
-                listener.notify(self.clock, op.cycles)
+        print('Emulator shutdown')
 
     def nop(self):
         """0x00"""

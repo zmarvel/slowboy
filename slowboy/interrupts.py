@@ -38,7 +38,7 @@ class InterruptListener(metaclass=abc.ABCMeta):
 
 class InterruptController(InterruptListener):
     def __init__(self, logger:logging.Logger=None, log_level=logging.INFO):
-        self.enabled = True
+        self.enabled = False
         self._if = 0
         self._ie = 0
         if logger is None:

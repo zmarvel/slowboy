@@ -104,8 +104,8 @@ def decode_tile(tile: ByteString, palette: Sequence[Color]) -> ByteString:
         hi = tile[i]
         lo = tile[i+1]
         for j in range(8):
-            c = (lo >> (7-j)) & 1
-            c |= ((hi >> (7-j)) & 1) << 1
+            c = (hi >> (7-j)) & 1
+            c |= ((lo >> (7-j)) & 1) << 1
             decoded[i*4+j] = palette[c]
     return decoded
 

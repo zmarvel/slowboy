@@ -180,7 +180,6 @@ class MMU():
                 return self.timer.tma
             elif addr == 0xff07:
                 return self.timer.tac
-                pass
             elif addr == 0xff0f:
                 # IF
                 return self.interrupt_controller.if_

@@ -126,22 +126,30 @@ class GPU(ClockListener):
         :py:attr:GPU._fgtileset but not :py:attr:GPU._fgsurface"""
         self._stale_fgtiles = 0
 
-        self._bgp = 0xfc   # BG palette data
-        self._obp0 = 0xff  # Object palette 0 data
-        self._obp1 = 0xff  # Object palette 1 data
-        self._lcdc = 0x91  # LCD control register
-        self._stat = 0  # LCD status register
-        self._scy = 0   # Scroll y
-        self._scx = 0   # Scroll x
-        self._ly = 0
-        self._lyc = 0
+        self._bgp = 0x00
+        self._obp0 = 0x00
+        self._obp1 = 0x00
+        self._lcdc = 0x00
+        self._stat = 0x00
+        self._scy = 0x00
+        self._scx = 0x00
+        self._ly = 0x00
+        self._lyc = 0x00
         self._mode = Mode.OAM_READ
-        self._wy = 0    # Window y position
-        self._wx = 0    # Window x position - 7
-        self._dma = 0
-
-        self.ly = 0     # LCD y-coordinate
-        self.lyc = 0    # LY compare
+        self._wy = 0x00
+        self._wx = 0x00
+        self.bgp = 0xfc         # BG palette data
+        self.obp0 = 0xff        # Object palette 0 data
+        self.obp1 = 0xff        # Object palette 1 data
+        self.lcdc = 0x91        # LCD control register
+        self.stat = 0           # LCD status register
+        self.scy = 0            # Scroll y
+        self.scx = 0            # Scroll x
+        self.ly = 0             # LCD y-coordinate
+        self.lyc = 0            # LY compare
+        self.mode = Mode.OAM_READ
+        self.wy = 0             # Window y position
+        self.wx = 0             # Window x position - 7
 
         # initialize _palettes
         self.bgp = self._bgp
@@ -173,6 +181,8 @@ class GPU(ClockListener):
 
     @lcdc.setter
     def lcdc(self, value):
+        if self._lcdc == value:
+            return
         self._lcdc = value
         #self.logger.debug('set LCDC to %#x', value)
         self.logger.info('set LCDC to %#x', value)
@@ -184,6 +194,8 @@ class GPU(ClockListener):
 
     @bgp.setter
     def bgp(self, value):
+        if self._bgp == value:
+            return
         self._bgp = value
         self.logger.debug('set BGP to %#x', value)
         self._palette = [
@@ -202,6 +214,8 @@ class GPU(ClockListener):
 
     @obp0.setter
     def obp0(self, value):
+        if self._obp0 == value:
+            return
         self._obp0 = value
         self.logger.debug('set OBP0 to %#x', value)
         # lower 2 bits aren't used for object palette (color 0 indicates
@@ -223,6 +237,8 @@ class GPU(ClockListener):
 
     @obp1.setter
     def obp1(self, value):
+        if self._obp1 == value:
+            return
         self._obp1 = value
         self.logger.debug('set OBP1 to %#x', value)
         # lower 2 bits aren't used for object palette (color 0 indicates
@@ -244,6 +260,8 @@ class GPU(ClockListener):
 
     @scx.setter
     def scx(self, value):
+        if self._scx == value:
+            return
         value &= 0xff
         self._scx = value
         self._update_vram('scx')
@@ -255,6 +273,8 @@ class GPU(ClockListener):
 
     @scy.setter
     def scy(self, value):
+        if self._scy == value:
+            return
         value &= 0xff
         self._scy = value
         self._update_vram('scy')
@@ -266,6 +286,8 @@ class GPU(ClockListener):
 
     @ly.setter
     def ly(self, value):
+        if self._ly == value:
+            return
         if value == self.lyc:
             # LYC interrupt
             self.stat |= 1 << STAT_LYC_FLAG_OFFSET
@@ -282,6 +304,8 @@ class GPU(ClockListener):
 
     @lyc.setter
     def lyc(self, value):
+        if value == self._lyc:
+            return
         if value == self.ly:
             # LYC interrupt
             self.stat |= 1 << STAT_LYC_FLAG_OFFSET
@@ -298,6 +322,8 @@ class GPU(ClockListener):
 
     @wy.setter
     def wy(self, value):
+        if self._wy == value:
+            return
         self._wy = value
         self._update_vram('wy')
         self.logger.debug('set WY to %#x', value)
@@ -309,6 +335,8 @@ class GPU(ClockListener):
     @wx.setter
     def wx(self, value):
         value -= 7
+        if self._wy == value:
+            return
         self._wx = value
         self._update_vram('wx')
         self.logger.debug('set WX to %#x', value)
@@ -381,18 +409,6 @@ class GPU(ClockListener):
         self._mode = value
         self.stat = stat 
 
-    @property
-    def dma(self):
-        self.logger.error('not implemented: DMA')
-        return self._dma
-
-    @dma.setter
-    def dma(self, value):
-        value = value & 0xff
-        self.logger.debug('set DMA to %#x', value)
-        self.logger.error('not implemented: DMA')
-        self._dma = value
-
     def log_regs(self, log=None):
         if log is None:
             log = self.logger.debug
@@ -403,7 +419,7 @@ class GPU(ClockListener):
         log('0xff43: SCX : %#04x', self.scx)
         log('0xff44: LY  : %#04x', self.ly)
         log('0xff45: LYC : %#04x', self.lyc)
-        log('0xff45: DMA : %#04x', self.dma)
+        #log('0xff45: DMA : %#04x', self.dma)
         log('0xff47: BGP : %#04x', self.bgp)
         log('0xff48: OBP0: %#04x', self.obp0)
         log('0xff49: OBP1: %#04x', self.obp1)
@@ -529,19 +545,18 @@ class GPU(ClockListener):
 
         if self._needs_update:
             #self._update_tilesets()
-            #self._update_bgsurface()
+            #self._update_surfaces()
             self._needs_update = False
 
         # draw background
         if self.lcdc & LCDC_BG_DISPLAY_MASK:
-            converted = sdl2.SDL_ConvertSurfaceFormat(self._bgsurface,
-                                                      surface.format.contents.format,
-                                                      0)
             src = SDL_Rect(self.scx, self.scy, SCREEN_WIDTH, SCREEN_HEIGHT)
             dst = SDL_Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
-            if SDL_BlitSurface(converted, src, surface, dst) < 0:
+            if SDL_BlitSurface(self._bgsurface, src, surface, dst) < 0:
                 raise sdl2.SDL_Error()
-            sdl2.SDL_FreeSurface(converted)
+            #if self.scx + SCREEN_WIDTH > BACKGROUND_WIDTH:
+            #    src = SDL_Rect(0, self.scy, self.scx + SCREEN_WIDTH - BACKGROUND_WIDTH, SCREEN_HEIGHT)
+            #    dst = SDL_Rect(
         else:
             dst = SDL_Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
             color = sdl2.SDL_MapRGB(surface.format, 0xff, 0xff, 0xff)
@@ -550,18 +565,18 @@ class GPU(ClockListener):
 
         # draw foreground
         if self.lcdc & LCDC_WINDOW_DISPLAY_ENABLE_MASK:
-            converted = sdl2.SDL_ConvertSurfaceFormat(self._fgsurface,
-                                                      surface.format.contents.format,
-                                                      0)
-            wx = self.wx
-            wy = self.wy
-            w = SCREEN_WIDTH - wx
-            h = SCREEN_HEIGHT - wy
-            src = SDL_Rect(0, 0, w, h)
-            dst = SDL_Rect(wx, wy, w, h)
-            if SDL_BlitSurface(converted, src, surface, dst) < 0:
-                raise sdl2.SDL_Error()
-            sdl2.SDL_FreeSurface(converted)
+           converted = sdl2.SDL_ConvertSurfaceFormat(self._fgsurface,
+                                                     surface.format.contents.format,
+                                                     0)
+           wx = self.wx
+           wy = self.wy
+           w = SCREEN_WIDTH - wx
+           h = SCREEN_HEIGHT - wy
+           src = SDL_Rect(0, 0, w, h)
+           dst = SDL_Rect(wx, wy, w, h)
+           if SDL_BlitSurface(converted, src, surface, dst) < 0:
+               raise sdl2.SDL_Error()
+           sdl2.SDL_FreeSurface(converted)
 
         # draw sprites
         if self.lcdc & LCDC_SPRITE_DISPLAY_ENABLE_MASK:
@@ -697,8 +712,7 @@ class GPU(ClockListener):
             if addr == 'lcdc':
                 self._update_tilesets()
                 self._update_surfaces()
-                # TODO
-                #self._update_sprites()
+                self._update_sprite_surface()
             elif addr == 'bgp':
                 self._update_tilesets()
                 self._update_bgsurface()
@@ -711,8 +725,10 @@ class GPU(ClockListener):
                 pass
             elif addr == 'wx' or addr == 'wy':
                 pass
-        elif isinstance(addr, int):
+        elif isinstance(addr, int) and self.lcdc & LCDC_DISPLAY_ENABLE_MASK \
+                    and (self.lcdc & LCDC_WINDOW_DISPLAY_ENABLE_MASK or self.lcdc & LCDC_BG_DISPLAY_MASK):
             # VRAM
+            addr += VRAM_START
             # Tilemap data
             if 0x9800 <= addr < 0xa000:
                 if self.lcdc & LCDC_BG_TILE_DISPLAY_SELECT_MASK == 0:
@@ -737,8 +753,9 @@ class GPU(ClockListener):
                 else:
                     # 0x8000-0x8fff
                     tile = (addr - 0x8000) // 16
+                #self._update_tilesets()
+                print(addr, tile)
                 self._update_tile(tile)
-                self._update_fgtile(tile)
 
 
         # what is this for? TODO
@@ -758,12 +775,11 @@ class GPU(ClockListener):
         return self.oam[addr]
 
     def set_oam(self, addr, value):
+        old = self.oam[addr]
         self.oam[addr] = value
         self.logger.debug('set OAM %#06x=%#06x', OAM_START+addr, value)
-        self._update_oam()
-
-    def _update_oam(self):
-        pass
+        if old != value:
+            self._update_sprite_surface()
 
     @property
     def enabled(self):

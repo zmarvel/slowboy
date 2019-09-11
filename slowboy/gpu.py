@@ -754,7 +754,7 @@ class GPU(ClockListener):
                     # 0x8000-0x8fff
                     tile = (addr - 0x8000) // 16
                 #self._update_tilesets()
-                print(addr, tile)
+                #print(addr, tile)
                 self._update_tile(tile)
 
 

@@ -5,11 +5,15 @@ import sdl2.ext
 import select
 import sys
 import argparse as ap
+import threading
+from collections import deque
 
 from slowboy.mmu import MMU
 from slowboy.z80 import Z80, State
 from slowboy.gpu import SCREEN_WIDTH, SCREEN_HEIGHT, VRAM_START, OAM_START, BACKGROUND_SIZE
 from slowboy.util import hexdump, print_lines
+
+from slowboy.debug.debug_thread import DebugThread
 
 
 class HeadlessUI():
@@ -31,31 +35,73 @@ font_map = ["!\"%'YZ+,-.X=_?0 ",
             ]
 
 
+class EmulatorThread(threading.Thread):
+    def __init__(self, z80: Z80, cmd_q: deque, resp_q: deque):
+        super().__init__()
+        self.cpu = z80
+        self.cmd_q = cmd_q
+        self.resp_q = resp_q
+        self.cpu.set_message_queues(cmd_q, resp_q)
+
+    def stop(self):
+        print('EmulatorThread begins shutdown')
+        self.cpu.stop()
+
+    def run(self):
+        print('EmulatorThread started')
+        self.cpu.go()
+        print('EmulatorThread finished')
+
+
 class SDLUI():
-    def __init__(self, romfile, log_level=logging.WARNING):
+    def __init__(self, romfile, debug=False, debug_address=None,
+                 log_level=logging.WARNING):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
 
         with open(romfile, 'rb') as f:
             rom = f.read()
-        self.cpu = Z80(rom=rom, log_level=log_level)
+        self.cpu = Z80(rom=rom, debug=debug, debug_address=debug_address,
+                       log_level=log_level)
 
         self.window = sdl2.ext.Window('slowboy', (SCREEN_WIDTH, SCREEN_HEIGHT))
         self.window.show()
         self.surface = self.window.get_surface()
 
+        self.debug_cmd_q = None
+        self.debug_resp_q = None
+        self.debug = debug
+        if debug:
+            self.debug_thread = DebugThread(debug_address, self.cpu)
+            self.debug_cmd_q = self.debug_thread.command_queue
+            self.debug_resp_q = self.debug_thread.response_queue
+            self.debug_thread.start()
+            #self.cpu.set_debug_queues(self.cmd_q, self.resp_q)
+        self.cmd_q = deque()
+        self.resp_q = deque()
+        self.emulator_thread = EmulatorThread(self.cpu, self.cmd_q, self.resp_q)
+
+    def stop(self):
+        print('SDLUI.stop called')
+        self.emulator_thread.stop()
+        self.emulator_thread.join(timeout=1)
+        if self.debug:
+            self.debug_thread.stop()
+            self.debug_thread.join(timeout=1)
+        print('SDLUI.stop finished')
+
     def start(self):
         # self.cpu.go()
         self.cpu.state = State.RUN
-        pass
+        self.emulator_thread.start()
 
     def step(self):
-        try:
-            self.cpu.step()
-        except Exception as e:
-            self.cpu.log_op(log=ui.logger.error)
-            self.cpu.log_regs(log=ui.logger.error)
-            raise e
+        #try:
+        #    self.cpu.step()
+        #except Exception as e:
+        #    self.cpu.log_op(log=ui.logger.error)
+        #    self.cpu.log_regs(log=ui.logger.error)
+        #    raise e
         self.present(self.surface)
 
     def present(self, surface):
@@ -194,16 +240,22 @@ if __name__ == '__main__':
                         help='GameBoy ROM file path')
     parser.add_argument('-d', '--debug', action='store_true',
                         help='Start the emulator in debug mode.')
+    parser.add_argument('--debug-port', type=int, default=9099,
+                        help='Debugger listening port')
+    parser.add_argument('--debug-address', type=str, default='127.0.0.1',
+                        help='Debugger listening address')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable verbose logging')
     args = parser.parse_args()
 
     # ui = SDLUI(sys.argv[1], logger=root_logger, log_level=logging.DEBUG)
-    ui = SDLUI(args.rom, log_level=root_logger.level)
+    ui = SDLUI(args.rom, debug=args.debug,
+               debug_address=(args.debug_address, args.debug_port),
+               log_level=root_logger.level)
     ui.start()
     state = {
         'running': True,
-        'step': args.debug,
+        'step': False,
         'breakpoints': {},
     }
 
@@ -227,16 +279,18 @@ if __name__ == '__main__':
         for event in events:
             if event.type == sdl2.events.SDL_QUIT:
                 state['running'] = False
+                ui.stop()
                 ui.cpu.log_regs(log=ui.logger.info)
                 ui.cpu.log_op(log=ui.logger.info)
                 break
             if event.type == sdl2.SDL_KEYDOWN:
                 if event.key.keysym.sym == sdl2.SDLK_s:
-                    state['step'] = True
+                    ui.cpu.trace = True
                     ui.step()
                 elif event.key.keysym.sym == sdl2.SDLK_c:
-                    state['step'] = False
+                    ui.cpu.trace = False
                 elif event.key.keysym.sym == sdl2.SDLK_q:
+                    ui.stop()
                     ui.cpu.log_regs(log=ui.logger.info)
                     ui.cpu.log_op(log=ui.logger.info)
                     #for a in sorted(ui.cpu._calls.keys()):
@@ -262,14 +316,14 @@ if __name__ == '__main__':
         if ui.cpu.pc in state['breakpoints'] and not state['step']:
             state['breakpoints'][ui.cpu.pc](ui.cpu.pc)
 
-        if not state['step']:
+        if not ui.cpu.trace:
             ui.step()
 
-        rlist, _, _ = select.select((sys.stdin,), (), (), 0)
-        if rlist:
-            command(ui, state)
+        #rlist, _, _ = select.select((sys.stdin,), (), (), 0)
+        #if rlist:
+        #    command(ui, state)
 
-        if state['step']:
+        if ui.cpu.trace:
             sdl2.SDL_Delay(100)
 
         # sdl2.SDL_UpdateWindowSurface(ui.window.window)

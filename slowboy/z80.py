@@ -1,15 +1,15 @@
 
 
-import faulthandler
-
-faulthandler.enable()
+# import faulthandler
+# faulthandler.enable()
 
 
 from enum import Enum
 import logging
 from collections import defaultdict
+# from functools import partial
 
-from slowboy.util import Op, ClockListener, twoscompl8, twoscompl16, add_s8, add_s16
+from slowboy.util import Op, ClockListener, twoscompl8, twoscompl16, add_s16
 from slowboy.mmu import MMU
 from slowboy.gpu import GPU
 from slowboy.interrupts import InterruptController
@@ -26,11 +26,12 @@ class State(Enum):
     STOP = 2
 
 
-class Z80(object):
+class Z80():
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
     internal_reglist = ['b', 'c', 'd', 'e', 'h', 'l', 'a', 'f']
 
     def __init__(self, rom=None, mmu=None, gpu=None, timer=None,
+                 debug=False, debug_address=None, cmd_q=None, resp_q=None,
                  log_level=logging.WARNING):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
@@ -40,8 +41,11 @@ class Z80(object):
         self.clock_listeners = []
 
         self.state = State.STOP
-        self.mmu = MMU(rom=rom, logger=self.logger, log_level=log_level) if mmu is None else mmu
-        #self.gpu = GPU(logger=self.logger, log_level=log_level) if gpu is None else gpu
+        if mmu is None:
+            self.mmu = MMU(rom=rom, logger=self.logger, log_level=log_level)
+        else:
+            self.mmu = mmu
+        # self.gpu = GPU(logger=self.logger, log_level=log_level) if gpu is None else gpu
         self.gpu = GPU(logger=self.logger) if gpu is None else gpu
         self.mmu.load_gpu(self.gpu)
         self.register_clock_listener(self.gpu)
@@ -82,6 +86,13 @@ class Z80(object):
                 self.op = self.cb_opcode_map[self.opcode]
 
         self._branches = defaultdict(lambda: 0)
+
+        self.debug = debug
+        self.cmd_q = cmd_q
+        self.resp_q = resp_q
+        self.trace = False
+
+        self.breakpoints = []
 
     def _init_opcode_map(self):
         self.opcode_map = {
@@ -690,8 +701,28 @@ class Z80(object):
             raise TypeError('listener must implement ClockListener')
         self.clock_listeners.append(listener)
 
+    def set_message_queues(self, cmd_q, resp_q):
+        self.cmd_q = cmd_q
+        self.resp_q = resp_q
+
+    def get_message_queues(self):
+        return (self.cmd_q, self.resp_q)
+
+    # Debug hooks
+    def set_breakpoint(self, addr):
+        self.breakpoints.append(addr)
+
+    def remove_breakpoint(self, addr):
+        self.breakpoints.remove(addr)
+
     def get_registers(self):
         return self.registers
+
+    def get_register(self, register):
+        if len(register) == 1:
+            return self.get_reg8(register)
+        elif len(register) == 2:
+            return self.get_reg16(register)
 
     def set_reg8(self, reg8, value):
         """Set :py:data:reg8 to :py:data:value.
@@ -735,6 +766,14 @@ class Z80(object):
             hi = self.registers[reg16[0]]
             lo = self.registers[reg16[1]]
             return (hi << 8) | lo
+
+    def read_register(self, reg):
+        if len(reg) == 1:
+            return self.get_reg8(reg)
+        elif len(reg) == 2:
+            return self.get_reg16(reg)
+        else:
+            raise ValueError('Unrecognized register')
 
     @property
     def sp(self):
@@ -812,6 +851,30 @@ class Z80(object):
         value |= self.fetch() << 8
         return value
 
+    def send_command(self, cmd):
+        self.cmd_q.append(cmd)
+
+    def handle_command(self):
+        if cmd.code == ShutdownCommand.code:
+            self.state = State.HALT
+        elif cmd.code == StepCommand.code:
+            self._step = True
+        elif cmd.code == ContinueCommand.code:
+            self.trace = False
+        elif cmd.code == SetBreakpointCommand.code:
+            self.set_breakpoint(cmd.address)
+        elif cmd.code == ReadRegisterCommand.code:
+            reg = ReadRegisterCommand.decode_register(cmd.register)
+            value = self.read_register(reg)
+            self.resp_q.append(ReadRegisterResponse(reg, value))
+        elif cmd.code == ReadMemoryCommand.code:
+            addr = cmd.address
+            length = cmd.length
+            values = bytes([self.mmu.get_addr(a) for a in range(addr, addr+length)])
+            self.resp_q.append(ReadMemoryResponse(addr, values))
+        else:
+            raise UnrecognizedCommandException()
+
     def step(self):
         """Advance the CPU by one instruction.
 
@@ -824,6 +887,10 @@ class Z80(object):
                 self.state = State.RUN
             else:
                 return False
+
+        for cmd in self.cmd_q:
+            self.handle_command(cmd)
+            print('resp_q: {}'.format(self.resp_q))
 
         # Only handle one interrupt at a time
         if not self._in_interrupt and self.interrupt_controller.has_interrupt:
@@ -877,7 +944,7 @@ class Z80(object):
 
     def go(self):
         self.state = State.RUN
-        while self.state != State.STOP:
+        while not self.trace and self.state != State.STOP:
             self.step()
 
         print('Emulator shutdown')

@@ -1,0 +1,4 @@
+#!/bin/bash
+
+coverage run --source slowboy -m unittest discover tests
+coverage html

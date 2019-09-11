@@ -75,3 +75,20 @@ target/
 # ctags
 .ctags
 tags
+
+# images
+*.png
+*.bmp
+*.xcf
+
+# archives
+*.zip
+
+# saves from other emulators
+*.sav
+
+# backups I made
+*.bak
+
+# pdfs
+*.pdf

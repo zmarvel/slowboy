@@ -235,14 +235,15 @@ class MMU():
     def set_addr(self, addr, value):
         value = value & 0xff
 
-        if addr in self.watchpoints:
-            self.watchpoints[addr](addr, value)
+        #if addr in self.watchpoints:
+        #    self.watchpoints[addr](addr, value)
 
         if addr < 0:
             # invalid
             raise ValueError('invalid address {:#04x}'.format(addr))
         elif addr < 0x8000:
             # ROM 0x0000-0x8000
+            #raise ValueError('cannot write to read-only address {:#04x}'.format(addr))
             self.logger.warning('cannot write to read-only address %#04x (in ROM)', addr)
         elif addr < 0xa000:
             # VRAM (8 KB) 0x8000-0xa000

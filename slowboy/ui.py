@@ -59,8 +59,12 @@ class SDLUI():
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
 
+        rom = bytearray(0x8000)
         with open(romfile, 'rb') as f:
-            rom = f.read()
+            #f.readinto(rom)
+            rom_read = f.read()
+            print('Read {} B from ROM file'.format(len(rom_read)))
+            rom[0:len(rom_read)] = rom_read
         self.cpu = Z80(rom=rom, debug=debug, debug_address=debug_address,
                        log_level=log_level)
 
@@ -102,13 +106,8 @@ class SDLUI():
         #    self.cpu.log_op(log=ui.logger.error)
         #    self.cpu.log_regs(log=ui.logger.error)
         #    raise e
-        self.present(self.surface)
-
-    def present(self, surface):
-        if self.cpu.gpu.draw(surface):
+        if self.cpu.gpu.draw(self.surface):
             self.window.refresh()
-
-        self.cpu.gpu.present()
 
 def command(ui, state):
     line = sys.stdin.readline().rstrip()
@@ -233,7 +232,7 @@ if __name__ == '__main__':
     import sys
     import logging
     root_logger = logging.getLogger(__name__)
-    logging.basicConfig(level=logging.ERROR)
+    logging.basicConfig(level=logging.WARNING)
 
     parser = ap.ArgumentParser(description='slowboy SDL interface')
     parser.add_argument('rom', type=str,
@@ -244,9 +243,15 @@ if __name__ == '__main__':
                         help='Debugger listening port')
     parser.add_argument('--debug-address', type=str, default='127.0.0.1',
                         help='Debugger listening address')
+    parser.add_argument('--profile', action='store_true',
+                        help='Print profiling info on exit.')
     parser.add_argument('-v', '--verbose', action='store_true',
                         help='Enable verbose logging')
     args = parser.parse_args()
+
+    if args.profile:
+        import yappi
+        yappi.start()
 
     # ui = SDLUI(sys.argv[1], logger=root_logger, log_level=logging.DEBUG)
     ui = SDLUI(args.rom, debug=args.debug,
@@ -274,56 +279,61 @@ if __name__ == '__main__':
         sdl2.SDLK_z: 'b',
     }
 
-    while state['running']:
-        events = sdl2.ext.get_events()
-        for event in events:
-            if event.type == sdl2.events.SDL_QUIT:
-                state['running'] = False
-                ui.stop()
-                ui.cpu.log_regs(log=ui.logger.info)
-                ui.cpu.log_op(log=ui.logger.info)
-                break
-            if event.type == sdl2.SDL_KEYDOWN:
-                if event.key.keysym.sym == sdl2.SDLK_s:
-                    ui.cpu.trace = True
-                    ui.step()
-                elif event.key.keysym.sym == sdl2.SDLK_c:
-                    ui.cpu.trace = False
-                elif event.key.keysym.sym == sdl2.SDLK_q:
+    try:
+        while state['running']:
+            events = sdl2.ext.get_events()
+            for event in events:
+                if event.type == sdl2.events.SDL_QUIT:
+                    state['running'] = False
                     ui.stop()
                     ui.cpu.log_regs(log=ui.logger.info)
                     ui.cpu.log_op(log=ui.logger.info)
-                    #for a in sorted(ui.cpu._calls.keys()):
-                    #    print(hex(a), ui.cpu._calls[a])
-                    for branch in sorted(ui.cpu._branches.keys(), key=lambda k: ui.cpu._branches[k]):
-                        src, dst = branch
-                        print("{:#04x} → {:#04x}: {}".format(src, dst, ui.cpu._branches[branch]))
-
-                    state['running'] = False
                     break
-                elif event.key.keysym.sym == sdl2.SDLK_d:
-                    ui.cpu.gpu.logger.setLevel(logging.DEBUG)
-                elif event.key.keysym.sym == sdl2.SDLK_i:
-                    ui.cpu.gpu.logger.setLevel(logging.INFO)
-                elif event.key.keysym.sym == sdl2.SDLK_r:
-                    ui.cpu.log_regs(log=ui.logger.info)
-                elif event.key.keysym.sym in button_map:
-                    ui.cpu.mmu.press_button(button_map[event.key.keysym.sym])
-            if event.type == sdl2.SDL_KEYUP:
-                if event.key.keysym.sym in button_map:
-                    ui.cpu.mmu.unpress_button(button_map[event.key.keysym.sym])
+                if event.type == sdl2.SDL_KEYDOWN:
+                    if event.key.keysym.sym == sdl2.SDLK_s:
+                        ui.cpu.trace = True
+                        ui.step()
+                    elif event.key.keysym.sym == sdl2.SDLK_c:
+                        ui.cpu.trace = False
+                    elif event.key.keysym.sym == sdl2.SDLK_q:
+                        ui.stop()
+                        ui.cpu.log_regs(log=ui.logger.info)
+                        ui.cpu.log_op(log=ui.logger.info)
+                        #for a in sorted(ui.cpu._calls.keys()):
+                        #    print(hex(a), ui.cpu._calls[a])
+                        #for branch in sorted(ui.cpu._branches.keys(), key=lambda k: ui.cpu._branches[k]):
+                        #    src, dst = branch
+                        #    print("{:#04x} → {:#04x}: {}".format(src, dst, ui.cpu._branches[branch]))
 
-        if ui.cpu.pc in state['breakpoints'] and not state['step']:
-            state['breakpoints'][ui.cpu.pc](ui.cpu.pc)
+                        state['running'] = False
+                        break
+                    elif event.key.keysym.sym == sdl2.SDLK_d:
+                        ui.cpu.gpu.logger.setLevel(logging.DEBUG)
+                    elif event.key.keysym.sym == sdl2.SDLK_i:
+                        ui.cpu.gpu.logger.setLevel(logging.INFO)
+                    elif event.key.keysym.sym == sdl2.SDLK_r:
+                        ui.cpu.log_regs(log=ui.logger.info)
+                    elif event.key.keysym.sym in button_map:
+                        ui.cpu.mmu.press_button(button_map[event.key.keysym.sym])
+                if event.type == sdl2.SDL_KEYUP:
+                    if event.key.keysym.sym in button_map:
+                        ui.cpu.mmu.unpress_button(button_map[event.key.keysym.sym])
 
-        if not ui.cpu.trace:
-            ui.step()
+            if ui.cpu.pc in state['breakpoints'] and not state['step']:
+                state['breakpoints'][ui.cpu.pc](ui.cpu.pc)
 
-        #rlist, _, _ = select.select((sys.stdin,), (), (), 0)
-        #if rlist:
-        #    command(ui, state)
+            if not ui.cpu.trace:
+                ui.step()
 
-        if ui.cpu.trace:
-            sdl2.SDL_Delay(100)
+            #rlist, _, _ = select.select((sys.stdin,), (), (), 0)
+            #if rlist:
+            #    command(ui, state)
 
-        # sdl2.SDL_UpdateWindowSurface(ui.window.window)
+            if ui.cpu.trace:
+                sdl2.SDL_Delay(100)
+
+            # sdl2.SDL_UpdateWindowSurface(ui.window.window)
+    finally:
+        if args.profile:
+            yappi.get_func_stats().print_all()
+            #yappi.get_func_stats().debug_print()

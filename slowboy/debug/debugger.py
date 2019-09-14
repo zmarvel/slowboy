@@ -48,6 +48,10 @@ def get_command(cmd: str):
     elif cmd.startswith('x') or cmd.startswith('ex'):
         cmd, addr, length = split_command(cmd)
         return ReadMemoryCommand(int(addr), int(length))
+    elif cmd == 'gpu_dump':
+        return DumpTilesCommand()
+    elif cmd == 'update_tiles':
+        return UpdateTilesCommand()
     else:
         raise UnrecognizedCommandException(cmd)
 

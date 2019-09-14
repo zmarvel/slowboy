@@ -10,6 +10,7 @@ from slowboy.debug.message_protocol import MessageProtocol
 from slowboy.debug.messages import (Command, ShutdownCommand, StepCommand,
                                     ContinueCommand, SetBreakpointCommand,
                                     ReadRegisterCommand, ReadMemoryCommand,
+                                    DumpTilesCommand, UpdateTilesCommand,
                                     Response, ReadRegisterResponse,
                                     commands)
 from slowboy.debug.exceptions import UnrecognizedCommandException 
@@ -41,6 +42,18 @@ class DebugMessageReceiver(MessageHandler):
         self.resp_queue = resp_queue
         self.cpu = z80
 
+    @staticmethod
+    def dump_mem(mem, start=0): 
+        cols = 16 
+        rows = len(mem) // cols 
+        addr = 0 
+        for row in range(rows): 
+            print('[{:04x}] '.format(start+addr), end='') 
+            for col in range(cols): 
+                print(' {:02x}'.format(mem[addr+col]), end='') 
+            addr += cols 
+            print('') 
+
     def handle_message(self, msg: Command):
         print('DebugMessageReceiver got', msg)
         if msg.code == ShutdownCommand.code:
@@ -63,6 +76,18 @@ class DebugMessageReceiver(MessageHandler):
             length = msg.length
             for i in range(addr, length):
                 print(self.cpu.mmu.get_addr(addr))
+        elif msg.code == DumpTilesCommand.code:
+            print('Dumping GPU tiles')
+            self.cpu.gpu.dump_tileset('tileset.bmp')
+            self.cpu.gpu.dump_background('background.bmp')
+            self.cpu.gpu.dump_foreground('foreground.bmp')
+            buf = bytearray(0x1800)
+            self.cpu.gpu.dump_tile_memory(buf)
+            self.dump_mem(buf, 0x8000)
+            self.cpu.gpu.dump_regs()
+        elif msg.code == UpdateTilesCommand.code:
+            for i in range(128):
+                self.cpu.gpu._update_tile(i)
         else:
             raise UnrecognizedCommandException()
 

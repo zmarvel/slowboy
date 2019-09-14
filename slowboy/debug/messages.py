@@ -10,7 +10,6 @@ from slowboy.debug.exceptions import *
 
 
 
-
 class Message(metaclass=abc.ABCMeta):
     def __init__(self, payload=bytes()):
         self.payload = payload
@@ -34,21 +33,30 @@ class Message(metaclass=abc.ABCMeta):
 class Command(Message):
     pass
 
+class Commands(enum.Enum):
+    SHUTDOWN_COMMAND = 0x01
+    STEP_COMMAND = 0x02
+    CONTINUE_COMMAND = 0x03
+    SET_BREAKPOINT_COMMAND = 0x04
+    READ_REGISTER_COMMAND = 0x05
+    READ_MEMORY_COMMAND = 0x06
+    DUMP_TILES_COMMAND = 0x07
+    UPDATE_TILES_COMMAND = 0x08
 
 class ShutdownCommand(Command):
-    code = 0x01
+    code = Commands.SHUTDOWN_COMMAND.value
 
 
 class StepCommand(Command):
-    code = 0x02
+    code = Commands.STEP_COMMAND.value
 
 
 class ContinueCommand(Command):
-    code = 0x03
+    code = Commands.CONTINUE_COMMAND.value
 
 
 class SetBreakpointCommand(Command):
-    code = 0x04
+    code = Commands.SET_BREAKPOINT_COMMAND.value
 
     def __init__(self, addr: int):
         self.payload = struct.pack('!H', addr)
@@ -67,7 +75,7 @@ registers = [
     'bc', 'de', 'hl', 'sp', 'pc',           # 16-bit registers
 ]
 class ReadRegisterCommand(Command):
-    code = 0x05
+    code = Commands.READ_REGISTER_COMMAND.value
 
     def __init__(self, reg: str):
         self.payload = struct.pack('!B', ReadRegisterCommand.encode_register(reg))
@@ -90,7 +98,7 @@ class ReadRegisterCommand(Command):
         return struct.unpack('!B', self.payload)[0]
 
 class ReadMemoryCommand(Command):
-    code = 0x06
+    code = Commands.READ_MEMORY_COMMAND.value
 
     def __init__(self, addr: int, length: int):
         self.payload = struct.pack('!HH', addr, length)
@@ -108,6 +116,13 @@ class ReadMemoryCommand(Command):
     def length(self):
         return struct.unpack('!HH', self.payload)[1]
 
+class DumpTilesCommand(Command):
+    code = Commands.DUMP_TILES_COMMAND.value
+
+class UpdateTilesCommand(Command):
+    code = Commands.UPDATE_TILES_COMMAND.value
+
+
 commands = [
     ShutdownCommand,
     StepCommand,
@@ -115,6 +130,8 @@ commands = [
     SetBreakpointCommand,
     ReadRegisterCommand,
     ReadMemoryCommand,
+    DumpTilesCommand,
+    UpdateTilesCommand,
 ]
 
 

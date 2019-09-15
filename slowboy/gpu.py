@@ -150,7 +150,7 @@ class GPU(ClockListener):
         self.lyc = 0            # LY compare
         self.mode = Mode.OAM_READ
         self.wy = 0             # Window y position
-        self.wx = 0             # Window x position - 7
+        self.wx = 7             # Window x position - 7
 
         # initialize _palettes
         self.bgp = self._bgp
@@ -287,15 +287,18 @@ class GPU(ClockListener):
 
     @ly.setter
     def ly(self, value):
-        if self._ly == value:
-            return
+        """Set the LY register. As an optimization, this setter updates the
+        stat register's LYC flag as well.
+        """
+        # We have to cheat and set _stat since the stat setter treats the LYC
+        # flag as read-only
         if value == self.lyc:
             # LYC interrupt
-            self.stat |= 1 << STAT_LYC_FLAG_OFFSET
-            if self.interrupt_controller is not None:
+            self._stat |= 1 << STAT_LYC_FLAG_OFFSET
+            if self.interrupt_controller is not None and self.stat & STAT_LYC_IE_MASK:
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
         else:
-            self.stat &= 0xff ^ (1 << STAT_LYC_FLAG_OFFSET)
+            self._stat &= ~STAT_LYC_FLAG_MASK
         self._ly = value
         self.logger.debug('set LY to %#x', value)
 
@@ -305,15 +308,14 @@ class GPU(ClockListener):
 
     @lyc.setter
     def lyc(self, value):
-        if value == self._lyc:
-            return
         if value == self.ly:
             # LYC interrupt
-            self.stat |= 1 << STAT_LYC_FLAG_OFFSET
-            if self.interrupt_controller is not None:
+            self._stat |= 1 << STAT_LYC_FLAG_OFFSET
+            if self.interrupt_controller is not None\
+               and self.stat & STAT_LYC_IE_MASK:
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
         else:
-            self.stat &= 0xff ^ (1 << STAT_LYC_FLAG_OFFSET)
+            self._stat &= ~STAT_LYC_FLAG_MASK
         self._lyc = value
         self.logger.debug('set LYC to %#x', value)
 
@@ -344,71 +346,45 @@ class GPU(ClockListener):
 
     @property
     def stat(self):
-        stat = self._stat ^ STAT_LYC_FLAG_MASK
-        # mode flag is set in notify()
-        if self.ly == self.lyc:
-            stat |= 1 << STAT_LYC_FLAG_OFFSET
-        self._stat = stat
-        return stat
+        return self._stat
 
     @stat.setter
-    def stat(self, value):
+    def stat(self, new_stat):
         """STAT IO register.
-
-        This setter should be called to update mode, and it will trigger
-        interrupts as necessary. If the LYC flag is set to 1, the corresponding
-        interrupt will also be triggered.
         """
-        interrupts = (value >> 3) & 0xf
-        old_mode = self._stat & 0x3
-        mode = value & 0x3
-        if (old_mode ^ mode) != 0:
-            # mode has changed -- new interrupts
-            if mode == 0 and interrupts & 0x1:
-                # hblank
-                self.interrupt_controller.notify_interrupt(InterruptType.stat)
-            elif mode == 1:
-                # vblank
-                if self.interrupt_controller is not None:
-                    if interrupts & 0x2:
-                        self.interrupt_controller.notify_interrupt(InterruptType.stat)
-                    self.interrupt_controller.notify_interrupt(InterruptType.vblank)
-            elif mode == 2 and interrupts & 0x4:
-                # oam read
-                self.interrupt_controller.notify_interrupt(InterruptType.stat)
-            elif mode < 0 or mode > 3:
-                raise ValueError('Invalid mode {}'.format(mode))
-
-        old_lyc_flag = (self._stat >> STAT_LYC_FLAG_OFFSET) & 1
-        lyc_flag = (value >> STAT_LYC_FLAG_OFFSET) & 1
-        if (old_lyc_flag ^ lyc_flag) != 0:
-            if lyc_flag and interrupts & STAT_LYC_IE_MASK:
-                # ly coincidence
-                self.interrupt_controller.notify_interrupt(InterruptType.stat)
-        else:
-            value &= ~STAT_LYC_FLAG_MASK
-
-        self._stat = value
-        self.logger.debug('set STAT to %#x', value)
+        old_stat = self._stat
+        # Preserve coincidence and mode flags
+        self._stat = (new_stat & ~(STAT_LYC_FLAG_MASK | STAT_MODE_MASK))\
+                | (old_stat & (STAT_LYC_FLAG_MASK | STAT_MODE_MASK))
+        # ly and mode setters will check this register for their interrupt
+        # status and notify the interrupt controller if necessary
+        self.logger.debug('set STAT to %#x', self._stat)
 
     @property
     def mode(self):
         return self._mode
 
     @mode.setter
-    def mode(self, value):
-        stat = self.stat 
-        if value == Mode.OAM_READ and stat & STAT_OAM_IE_MASK and \
-           self.interrupt_controller is not None:
+    def mode(self, new_mode: Mode):
+        """Set the GPU mode. As an optimization, this setter sets the stat
+        MODE flag as well. This optimizes for programs that poll the STAT
+        register, causing the stat getter to be called a lot.
+        """
+        stat = self.stat & ~STAT_MODE_MASK
+        if (new_mode == Mode.OAM_READ or new_mode == Mode.OAM_VRAM_READ)\
+           and stat & STAT_OAM_IE_MASK\
+           and self.interrupt_controller is not None:
             self.interrupt_controller.notify_interrupt(InterruptType.stat)
-        elif value == Mode.V_BLANK and stat & STAT_VBLANK_IE_MASK and \
+        elif new_mode == Mode.V_BLANK and stat & STAT_VBLANK_IE_MASK and \
                 self.interrupt_controller is not None:
             self.interrupt_controller.notify_interrupt(InterruptType.stat)
-        elif value == Mode.H_BLANK and stat & STAT_HBLANK_IE_MASK and \
+        elif new_mode == Mode.H_BLANK and stat & STAT_HBLANK_IE_MASK and \
                 self.interrupt_controller is not None:
             self.interrupt_controller.notify_interrupt(InterruptType.stat)
-        self._mode = value
-        self.stat = stat 
+        self._mode = new_mode
+        # We have to "cheat" here to update the STAT mode flag--the stat setter
+        # considers the mode flag read-only
+        self._stat = stat | new_mode.value
 
     def log_regs(self, log=None):
         if log is None:
@@ -656,25 +632,17 @@ class GPU(ClockListener):
         if self.mode == Mode.OAM_READ:
             if self.mode_clock >= 80:
                 self.mode = Mode.OAM_VRAM_READ # 3
-                self.stat &= ~STAT_MODE_MASK
-                self.stat |= self.mode.value
                 self.mode_clock %= 80
         elif self.mode == Mode.OAM_VRAM_READ:
             if self.mode_clock >= 172:
                 self.mode = Mode.H_BLANK # 0
-                self.stat &= ~STAT_MODE_MASK
-                self.stat |= self.mode.value
                 self.mode_clock %= 172
         elif self.mode == Mode.H_BLANK:
             if self.mode_clock >= 204:
                 if self.ly == 143:
                     self.mode = Mode.V_BLANK # 1
-                    self.stat &= ~STAT_MODE_MASK
-                    self.stat |= self.mode.value
                 else:
                     self.mode = Mode.OAM_READ # 2
-                    self.stat &= ~STAT_MODE_MASK
-                    self.stat |= self.mode.value
                 self.ly += 1
                 self.mode_clock %= 204
         elif self.mode == Mode.V_BLANK:
@@ -683,8 +651,6 @@ class GPU(ClockListener):
             if self.mode_clock >= 4560:
                 self._needs_draw = True
                 self.mode = Mode.OAM_READ # 2
-                self.stat &= ~STAT_MODE_MASK
-                self.stat |= self.mode.value
                 self.mode_clock %= 4560
                 self.ly = 0
         else:

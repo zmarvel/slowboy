@@ -33,7 +33,7 @@ class TestGPU(unittest.TestCase):
         self.assertEqual(self.gpu.wx, 0x00)
 
         # LYC=LY, Mode.OAM_READ
-        self.assertEqual(self.gpu.stat, 0x04 | 0x02)
+        self.assertEqual(self.gpu.stat, 0x04 | slowboy.gpu.Mode.OAM_READ.value)
 
         self.assertEqual(self.gpu.mode, slowboy.gpu.Mode.OAM_READ)
         self.assertEqual(self.gpu.mode_clock, 0)

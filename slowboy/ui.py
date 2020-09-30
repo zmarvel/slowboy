@@ -302,6 +302,8 @@ if __name__ == '__main__':
                         ui.cpu.mmu.logger.setLevel(logging.DEBUG)
                         ui.cpu.gpu.logger.setLevel(logging.DEBUG)
                     elif event.key.keysym.sym == sdl2.SDLK_i:
+                        ui.cpu.logger.setLevel(logging.INFO)
+                        ui.cpu.mmu.logger.setLevel(logging.INFO)
                         ui.cpu.gpu.logger.setLevel(logging.INFO)
                     elif event.key.keysym.sym == sdl2.SDLK_r:
                         ui.cpu.log_regs(log=ui.logger.info)

@@ -797,7 +797,7 @@ class Z80:
     @sp.setter
     def sp(self, u16):
         self._sp = u16 & 0xffff
-        self.logger.info('Set SP=%#x', self._sp)
+        # self.logger.debug('Set SP=%#x', self._sp)
 
     def inc_sp(self):
         self.sp = (self.sp + 1) & 0xffff
@@ -904,8 +904,6 @@ class Z80:
             if self.trace and not self.step:
                 sleep(0.5)
                 continue
-            else:
-                print('step')
 
             if self.state != State.RUN:
                 if self.interrupt_controller.has_interrupt:
@@ -949,8 +947,9 @@ class Z80:
                 op = self.opcode_map[opcode]
             self.op = op
 
-            # self.log_regs()
-            # self.log_op()
+            if self.trace:
+                self.log_regs()
+                self.log_op()
 
             # execute
             try:

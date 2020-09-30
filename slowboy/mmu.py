@@ -348,7 +348,7 @@ class MMU():
     def joyp(self):
         joyp = (self._joyp & 0x30) | 0x0f
         buttons = 0
-        if joyp & JOYP_SELECT_BUTTON_MASK == 0:
+        if joyp & JOYP_SELECT_DIRECTION_MASK == 0:
             if self._buttons['down']:
                 buttons |= 0x08
             if self._buttons['up']:
@@ -357,7 +357,7 @@ class MMU():
                 buttons |= 0x02
             if self._buttons['right']:
                 buttons |= 0x01
-        elif joyp & JOYP_SELECT_DIRECTION_MASK == 0:
+        elif joyp & JOYP_SELECT_BUTTON_MASK == 0:
             if self._buttons['start']:
                 buttons |= 0x08
             if self._buttons['select']:

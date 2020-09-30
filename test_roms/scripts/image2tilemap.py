@@ -18,7 +18,7 @@ def rgb_i2bit(iterable):
             yield hi
             yield lo
     except StopIteration:
-        raise StopIteration
+        return
 
 
 def imageto2bit(img, tile_size):

@@ -11,6 +11,7 @@ ROMS = test0.gb \
        test1.gb \
        test2.gb \
        test3.gb \
+       test4.gb \
 
 OBJS = $(ROMS:%.gb=%.o)
 
@@ -18,6 +19,7 @@ BINS = tileset1.bin \
        tilemap1.bin \
        tileset2.bin \
        tilemap2.bin \
+       tilemap3.bin \
 
 HEXS = $(patsubst %.gb,%.hex,$(ROMS)) \
        $(patsubst %.bin,%.hex,$(BINS))

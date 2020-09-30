@@ -646,7 +646,8 @@ class TestZ80ALU(unittest.TestCase):
 
         self.cpu.add_imm8toregSP()
 
-        self.assertEqual(self.cpu.sp, 0x70fe)
+        # Signed add
+        self.assertEqual(self.cpu.sp, 0x6ffe)
         self.assertEqual(self.cpu.get_carry_flag(), 0)
         self.assertEqual(self.cpu.get_halfcarry_flag(), 0)
         self.assertEqual(self.cpu.get_zero_flag(), 0)

@@ -50,7 +50,6 @@ class MessageHandler(metaclass=abc.ABCMeta):
             print('Started {}'.format(self))
             while True:
                 msg = await self.queue.get()
-                print('handle_messages: dequeued {}'.format(msg))
                 self.handle_message(msg)
         except asyncio.CancelledError:
             print('Shutting down {}'.format(self))

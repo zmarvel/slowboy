@@ -92,7 +92,7 @@ def decode_2bit(iterable: Iterable[int], palette: Sequence[Color]) \
         raise StopIteration()
 
 
-def decode_tile(tile: ByteString, palette: Sequence[Color]) -> ByteString:
+def decode_tile(tile: ByteString, palette: Sequence[int]) -> ByteString:
     """Decode a 2-bit tile to 8-bit grayscale.
 
     :param tile: 16-byte encoded 2-bit tile data.

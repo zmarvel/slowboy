@@ -37,12 +37,12 @@ class State(Enum):
     STOP = 2
 
 
-class Z80():
+class Z80:
     reglist = ['b', 'c', None, 'e', 'h', 'd', None, 'a']
     internal_reglist = ['b', 'c', 'd', 'e', 'h', 'l', 'a', 'f']
 
     def __init__(self, rom=None, mmu=None, gpu=None, timer=None,
-                 debug=False, debug_address=None, cmd_q=None, resp_q=None,
+                 debug=False, debug_address=None, cmd_q=[], resp_q=[],
                  log_level=logging.WARNING):
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(log_level)
@@ -96,13 +96,14 @@ class Z80():
                 self.opcode = self.mmu.get_addr(self.op_pc+1)
                 self.op = self.cb_opcode_map[self.opcode]
 
-        #self._branches = defaultdict(lambda: 0)
+        # self._branches = defaultdict(lambda: 0)
         self._opcode_ring = deque(maxlen=10)
 
         self.debug = debug
         self.cmd_q = cmd_q
         self.resp_q = resp_q
         self.trace = False
+        self.step = False
 
         self.breakpoints = []
 
@@ -718,7 +719,7 @@ class Z80():
         self.resp_q = resp_q
 
     def get_message_queues(self):
-        return (self.cmd_q, self.resp_q)
+        return self.cmd_q, self.resp_q
 
     # Debug hooks
     def set_breakpoint(self, addr):
@@ -761,9 +762,9 @@ class Z80():
         reg16 = reg16.lower()
         if reg16 == 'sp':
             self.sp = value & 0xffff
-        # elif reg16 == 'af':
-        #     hi = (value >> 8) & 0xff
-        #     self.registers['a'] = hi
+        elif reg16 == 'af':
+            hi = (value >> 8) & 0xff
+            self.registers['a'] = hi
         else:
             hi = (value >> 8) & 0xff
             lo = value & 0xff
@@ -774,6 +775,8 @@ class Z80():
         reg16 = reg16.lower()
         if reg16 == 'sp':
             return self.sp
+        elif reg16 == 'pc':
+            return self.pc
         else:
             hi = self.registers[reg16[0]]
             lo = self.registers[reg16[1]]
@@ -872,50 +875,52 @@ class Z80():
     def send_command(self, cmd):
         self.cmd_q.append(cmd)
 
-    def handle_command(self):
-        if cmd.code == ShutdownCommand.code:
-            self.state = State.HALT
-        elif cmd.code == StepCommand.code:
-            self._step = True
-        elif cmd.code == ContinueCommand.code:
-            self.trace = False
-        elif cmd.code == SetBreakpointCommand.code:
-            self.set_breakpoint(cmd.address)
-        elif cmd.code == ReadRegisterCommand.code:
-            reg = ReadRegisterCommand.decode_register(cmd.register)
-            value = self.read_register(reg)
-            self.resp_q.append(ReadRegisterResponse(reg, value))
-        elif cmd.code == ReadMemoryCommand.code:
-            addr = cmd.address
-            length = cmd.length
-            values = bytes([self.mmu.get_addr(a) for a in range(addr, addr+length)])
-            self.resp_q.append(ReadMemoryResponse(addr, values))
-        else:
-            raise UnrecognizedCommandException()
+    # def handle_command(self):
+    #     if cmd.code == ShutdownCommand.code:
+    #         self.state = State.HALT
+    #     elif cmd.code == StepCommand.code:
+    #         self._step = True
+    #     elif cmd.code == ContinueCommand.code:
+    #         self.trace = False
+    #     elif cmd.code == SetBreakpointCommand.code:
+    #         self.set_breakpoint(cmd.address)
+    #     elif cmd.code == ReadRegisterCommand.code:
+    #         reg = ReadRegisterCommand.decode_register(cmd.register)
+    #         value = self.read_register(reg)
+    #         self.resp_q.append(ReadRegisterResponse(reg, value))
+    #     elif cmd.code == ReadMemoryCommand.code:
+    #         addr = cmd.address
+    #         length = cmd.length
+    #         values = bytes([self.mmu.get_addr(a) for a in range(addr, addr+length)])
+    #         self.resp_q.append(ReadMemoryResponse(addr, values))
+    #     else:
+    #         raise UnrecognizedCommandException()
 
     def go(self):
         self.state = State.RUN
-        #while self.state != State.STOP:
         while self.state != State.STOP:
-            #self.step()
-            if self.trace:
+            # self.step()
+
+            if self.trace and not self.step:
                 sleep(0.5)
                 continue
+            else:
+                print('step')
 
             if self.state != State.RUN:
                 if self.interrupt_controller.has_interrupt:
                     self.state = State.RUN
-                #else:
-                #    return False
+                elif not self.trace:
+                    continue
 
-            for cmd in self.cmd_q:
-                self.handle_command(cmd)
-                print('resp_q: {}'.format(self.resp_q))
+            # for cmd in self.cmd_q:
+            #     self.handle_command(cmd)
+            #     print('resp_q: {}'.format(self.resp_q))
 
             # Only handle one interrupt at a time
             if not self._in_interrupt and self.interrupt_controller.has_interrupt:
                 interrupt = self.interrupt_controller.get_interrupt()
-                #self._saved_pc = self.pc
+                # self._saved_pc = self.pc
                 pc = self.pc
                 hi = (pc >> 8) & 0xff
                 lo = pc & 0xff
@@ -926,14 +931,16 @@ class Z80():
                 self.pc = 0x0040 + interrupt.value*8
                 self.interrupt_controller.acknowledge_interrupt(interrupt)
 
+            # fetch
             self.op_pc = self.pc
-            #opcode = self.fetch()
+            # opcode = self.fetch()
             opcode = self.mmu.get_addr(self.pc)
             self.pc += 1
             self.opcode = opcode
+
             # decode
             if opcode == 0xcb:
-                #cb_opcode = self.fetch()
+                # cb_opcode = self.fetch()
                 cb_opcode = self.mmu.get_addr(self.pc)
                 self.pc += 1
                 self.cb_opcode = cb_opcode
@@ -942,14 +949,8 @@ class Z80():
                 op = self.opcode_map[opcode]
             self.op = op
 
-            #self.log_regs()
-            #self.log_op()
-
-            if op is None:
-                raise ValueError('op {:#x} is None'.format(opcode))
-
-            if op.function is None:
-                raise ValueError('op.function for {} is None'.format(op))
+            # self.log_regs()
+            # self.log_op()
 
             # execute
             try:
@@ -964,6 +965,7 @@ class Z80():
             for listener in self.clock_listeners:
                 listener.notify(self.clock, op.cycles)
 
+            self.step = False
 
         print('Emulator shutdown')
 

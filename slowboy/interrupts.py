@@ -75,7 +75,7 @@ class InterruptController(InterruptListener):
 
     @property
     def has_interrupt(self) -> bool:
-        return self.enabled and (self.if_ & 0x1f) > 0
+        return self.enabled and (self.if_ & 0x1f) != 0
 
     def get_interrupts(self) -> Sequence[InterruptType]:
         for i in range(5):

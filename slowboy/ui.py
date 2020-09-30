@@ -2,8 +2,6 @@
 import logging
 import sdl2
 import sdl2.ext
-import select
-import sys
 import argparse as ap
 import threading
 from collections import deque
@@ -61,7 +59,6 @@ class SDLUI():
 
         rom = bytearray(0x8000)
         with open(romfile, 'rb') as f:
-            #f.readinto(rom)
             rom_read = f.read()
             print('Read {} B from ROM file'.format(len(rom_read)))
             rom[0:len(rom_read)] = rom_read
@@ -80,7 +77,6 @@ class SDLUI():
             self.debug_cmd_q = self.debug_thread.command_queue
             self.debug_resp_q = self.debug_thread.response_queue
             self.debug_thread.start()
-            #self.cpu.set_debug_queues(self.cmd_q, self.resp_q)
         self.cmd_q = deque()
         self.resp_q = deque()
         self.emulator_thread = EmulatorThread(self.cpu, self.cmd_q, self.resp_q)
@@ -95,17 +91,10 @@ class SDLUI():
         print('SDLUI.stop finished')
 
     def start(self):
-        # self.cpu.go()
         self.cpu.state = State.RUN
         self.emulator_thread.start()
 
     def step(self):
-        #try:
-        #    self.cpu.step()
-        #except Exception as e:
-        #    self.cpu.log_op(log=ui.logger.error)
-        #    self.cpu.log_regs(log=ui.logger.error)
-        #    raise e
         if self.cpu.gpu.draw(self.surface):
             self.window.refresh()
 
@@ -147,11 +136,8 @@ def command(ui, state):
                 raise ValueError('Expected "map," "vram," or "oam."')
         elif subc == 'display':
             src = line[2]
-            import PIL
             from PIL import Image
             if src == 'data':
-                #img = Image.frombytes("L", BACKGROUND_SIZE, bytes(ui.cpu.gpu._bgtileset.to_rgb().data))
-                #img.show()
                 from slowboy.gpu import GBTileset
                 vram = ui.cpu.gpu.vram
                 start = 0x8800-VRAM_START
@@ -240,9 +226,9 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--debug', action='store_true',
                         help='Start the emulator in debug mode.')
     parser.add_argument('--debug-port', type=int, default=9099,
-                        help='Debugger listening port')
+                        help='Debugger listening port (default=9099)')
     parser.add_argument('--debug-address', type=str, default='127.0.0.1',
-                        help='Debugger listening address')
+                        help='Debugger listening address (default=127.0.0.1)')
     parser.add_argument('--profile', action='store_true',
                         help='Print profiling info on exit.')
     parser.add_argument('-v', '--verbose', action='store_true',
@@ -253,7 +239,6 @@ if __name__ == '__main__':
         import yappi
         yappi.start()
 
-    # ui = SDLUI(sys.argv[1], logger=root_logger, log_level=logging.DEBUG)
     ui = SDLUI(args.rom, debug=args.debug,
                debug_address=(args.debug_address, args.debug_port),
                log_level=root_logger.level)
@@ -267,6 +252,9 @@ if __name__ == '__main__':
     if args.verbose:
         root_logger.setLevel(logging.DEBUG)
         ui.cpu.logger.setLevel(logging.DEBUG)
+
+    if args.debug:
+        ui.cpu.trace = True
 
     button_map = {
         sdl2.SDLK_DOWN: 'down',
@@ -292,22 +280,26 @@ if __name__ == '__main__':
                 if event.type == sdl2.SDL_KEYDOWN:
                     if event.key.keysym.sym == sdl2.SDLK_s:
                         ui.cpu.trace = True
+                        ui.cpu.step = True
                         ui.step()
                     elif event.key.keysym.sym == sdl2.SDLK_c:
+                        ui.cpu.step = False
                         ui.cpu.trace = False
                     elif event.key.keysym.sym == sdl2.SDLK_q:
                         ui.stop()
                         ui.cpu.log_regs(log=ui.logger.info)
                         ui.cpu.log_op(log=ui.logger.info)
-                        #for a in sorted(ui.cpu._calls.keys()):
+                        # for a in sorted(ui.cpu._calls.keys()):
                         #    print(hex(a), ui.cpu._calls[a])
-                        #for branch in sorted(ui.cpu._branches.keys(), key=lambda k: ui.cpu._branches[k]):
+                        # for branch in sorted(ui.cpu._branches.keys(), key=lambda k: ui.cpu._branches[k]):
                         #    src, dst = branch
                         #    print("{:#04x} → {:#04x}: {}".format(src, dst, ui.cpu._branches[branch]))
 
                         state['running'] = False
                         break
                     elif event.key.keysym.sym == sdl2.SDLK_d:
+                        ui.cpu.logger.setLevel(logging.DEBUG)
+                        ui.cpu.mmu.logger.setLevel(logging.DEBUG)
                         ui.cpu.gpu.logger.setLevel(logging.DEBUG)
                     elif event.key.keysym.sym == sdl2.SDLK_i:
                         ui.cpu.gpu.logger.setLevel(logging.INFO)
@@ -325,15 +317,11 @@ if __name__ == '__main__':
             if not ui.cpu.trace:
                 ui.step()
 
-            #rlist, _, _ = select.select((sys.stdin,), (), (), 0)
-            #if rlist:
-            #    command(ui, state)
-
             if ui.cpu.trace:
                 sdl2.SDL_Delay(100)
 
-            # sdl2.SDL_UpdateWindowSurface(ui.window.window)
+    except KeyboardInterrupt:
+        ui.stop()
     finally:
         if args.profile:
             yappi.get_func_stats().print_all()
-            #yappi.get_func_stats().debug_print()

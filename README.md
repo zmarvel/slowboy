@@ -57,7 +57,7 @@ I develop on Linux---these Linux distributions package at least libsdl2 version
 After cloning the repository, you can install the project for development with
 
 ```
-$ pip install --editable .
+$ pip install --editable .\[dev\]
 ```
 
 You can run the tests from the root of the project with

@@ -158,7 +158,7 @@ class GPU(ClockListener):
         self.obp1 = self._obp1
 
         self.mode = Mode.OAM_READ
-        self.stat |= 0x03
+        self._stat |= 0x03
         self.mode_clock = 0
 
         self.last_time = time()
@@ -311,8 +311,7 @@ class GPU(ClockListener):
         if value == self.ly:
             # LYC interrupt
             self._stat |= 1 << STAT_LYC_FLAG_OFFSET
-            if self.interrupt_controller is not None\
-               and self.stat & STAT_LYC_IE_MASK:
+            if self.interrupt_controller is not None and self.stat & STAT_LYC_IE_MASK:
                 self.interrupt_controller.notify_interrupt(InterruptType.stat)
         else:
             self._stat &= ~STAT_LYC_FLAG_MASK
@@ -358,7 +357,7 @@ class GPU(ClockListener):
                 | (old_stat & (STAT_LYC_FLAG_MASK | STAT_MODE_MASK))
         # ly and mode setters will check this register for their interrupt
         # status and notify the interrupt controller if necessary
-        self.logger.debug('set STAT to %#x', self._stat)
+        self.logger.info('set STAT to %#x (%#x)', self._stat, new_stat)
 
     @property
     def mode(self):
@@ -371,16 +370,16 @@ class GPU(ClockListener):
         register, causing the stat getter to be called a lot.
         """
         stat = self.stat & ~STAT_MODE_MASK
-        if (new_mode == Mode.OAM_READ or new_mode == Mode.OAM_VRAM_READ)\
-           and stat & STAT_OAM_IE_MASK\
-           and self.interrupt_controller is not None:
-            self.interrupt_controller.notify_interrupt(InterruptType.stat)
-        elif new_mode == Mode.V_BLANK and stat & STAT_VBLANK_IE_MASK and \
-                self.interrupt_controller is not None:
-            self.interrupt_controller.notify_interrupt(InterruptType.stat)
-        elif new_mode == Mode.H_BLANK and stat & STAT_HBLANK_IE_MASK and \
-                self.interrupt_controller is not None:
-            self.interrupt_controller.notify_interrupt(InterruptType.stat)
+        if self.interrupt_controller is not None:
+            if (new_mode == Mode.OAM_READ or new_mode == Mode.OAM_VRAM_READ)\
+               and stat & STAT_OAM_IE_MASK:
+                self.interrupt_controller.notify_interrupt(InterruptType.stat)
+            elif new_mode == Mode.V_BLANK:
+                if stat & STAT_VBLANK_IE_MASK:
+                    self.interrupt_controller.notify_interrupt(InterruptType.stat)
+                self.interrupt_controller.notify_interrupt(InterruptType.vblank)
+            elif new_mode == Mode.H_BLANK and stat & STAT_HBLANK_IE_MASK:
+                self.interrupt_controller.notify_interrupt(InterruptType.stat)
         self._mode = new_mode
         # We have to "cheat" here to update the STAT mode flag--the stat setter
         # considers the mode flag read-only
@@ -613,7 +612,7 @@ class GPU(ClockListener):
             ('SCX', self.scx),
             ('LY', self.ly),
             ('LYC', self.lyc),
-            ('MODE', self.mode),
+            ('MODE', self.mode.value),
             ('WY', self.wy),
             ('WX', self.wx),
         ]
@@ -691,10 +690,11 @@ class GPU(ClockListener):
             rgba_data[4*i+1] = (c >> 16) & 0xff
             rgba_data[4*i+2] = (c >> 8) & 0xff
             rgba_data[4*i+3] = c & 0xff
-        tile_surface = sdl2.SDL_CreateRGBSurfaceWithFormatFrom(bytes(rgba_data),
-                                                               TWIDTH, THEIGHT,
-                                                               32, TWIDTH*4,
-                                                               sdl2.SDL_PIXELFORMAT_RGBA32)
+        tile_surface = sdl2.SDL_CreateRGBSurfaceWithFormatFrom(
+            bytes(rgba_data),
+            TWIDTH, THEIGHT,
+            32, TWIDTH*4,
+            sdl2.SDL_PIXELFORMAT_RGBA32)
         if not tile_surface:
             print(sdl2.SDL_GetError())
             raise Exception

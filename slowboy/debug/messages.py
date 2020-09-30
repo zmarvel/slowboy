@@ -1,16 +1,11 @@
-
 import abc
-from typing import Callable
-import asyncio
 import struct
 import enum
-from collections import deque
-
-from slowboy.debug.exceptions import *
-
 
 
 class Message(metaclass=abc.ABCMeta):
+    code = 0x00
+
     def __init__(self, payload=bytes()):
         self.payload = payload
 
@@ -21,7 +16,7 @@ class Message(metaclass=abc.ABCMeta):
         return struct.pack('!LL', self.code, len(self.payload))
 
     @classmethod
-    def deserialize(cls, payload=bytes()):
+    def deserialize(cls, payload):
         """Default implementation. May be overridden for messages with non-empty
         payloads.
         """
@@ -30,10 +25,8 @@ class Message(metaclass=abc.ABCMeta):
 
 # ------------------------------------------------------------------------------
 
-class Command(Message):
-    pass
-
 class Commands(enum.Enum):
+    INVALID_COMMAND = 0x00
     SHUTDOWN_COMMAND = 0x01
     STEP_COMMAND = 0x02
     CONTINUE_COMMAND = 0x03
@@ -42,6 +35,11 @@ class Commands(enum.Enum):
     READ_MEMORY_COMMAND = 0x06
     DUMP_TILES_COMMAND = 0x07
     UPDATE_TILES_COMMAND = 0x08
+    SET_WATCHPOINT_COMMAND = 0x09
+
+class Command(Message):
+    code = Commands.INVALID_COMMAND.value
+
 
 class ShutdownCommand(Command):
     code = Commands.SHUTDOWN_COMMAND.value
@@ -59,7 +57,7 @@ class SetBreakpointCommand(Command):
     code = Commands.SET_BREAKPOINT_COMMAND.value
 
     def __init__(self, addr: int):
-        self.payload = struct.pack('!H', addr)
+        super().__init__(struct.pack('!H', addr))
 
     @classmethod
     def deserialize(cls, payload):
@@ -70,38 +68,47 @@ class SetBreakpointCommand(Command):
         return struct.unpack('!H', self.payload)[0]
 
 
-registers = [
-    'a', 'b', 'c', 'd', 'e', 'f', 'h', 'l', # 8-bit registers
-    'bc', 'de', 'hl', 'sp', 'pc',           # 16-bit registers
-]
+SINGLE_REGISTERS = ('a', 'b', 'c', 'd', 'e', 'f', 'h', 'l')
+DOUBLE_REGISTERS = ('bc', 'de', 'hl', 'sp', 'pc')
+REGISTERS = SINGLE_REGISTERS + DOUBLE_REGISTERS
+
+
 class ReadRegisterCommand(Command):
     code = Commands.READ_REGISTER_COMMAND.value
 
     def __init__(self, reg: str):
-        self.payload = struct.pack('!B', ReadRegisterCommand.encode_register(reg))
+        super(Command, self).__init__(
+            ReadRegisterCommand.encode_register(reg))
+        self.register = reg
 
     @classmethod
     def deserialize(cls, payload):
-        regid = struct.unpack('!B', payload)[0]
-        return cls(ReadRegisterCommand.decode_register(regid))
+        return cls(ReadRegisterCommand.decode_register(payload))
 
     @staticmethod
-    def encode_register(reg):
-        return registers.index(reg)
+    def encode_register(reg: str) -> bytes:
+        if reg in SINGLE_REGISTERS:
+            return reg.encode('ascii') + b'\x00'
+        elif reg in DOUBLE_REGISTERS:
+            return reg.encode('ascii')
+        else:
+            raise ValueError(f'Invalid register {reg}')
 
     @staticmethod
-    def decode_register(regid):
-        return registers[regid]
-
-    @property
-    def register(self):
-        return struct.unpack('!B', self.payload)[0]
+    def decode_register(breg: bytes) -> str:
+        if breg[1] == b'\x00':
+            breg = breg[:1]
+        decoded = breg.decode('ascii')
+        if decoded not in REGISTERS:
+            raise ValueError(f'Invalid register {decoded}')
+        else:
+            return decoded
 
 class ReadMemoryCommand(Command):
     code = Commands.READ_MEMORY_COMMAND.value
 
     def __init__(self, addr: int, length: int):
-        self.payload = struct.pack('!HH', addr, length)
+        super(Command, self).__init__(struct.pack('!HH', addr, length))
 
     @classmethod
     def deserialize(cls, payload):
@@ -116,11 +123,33 @@ class ReadMemoryCommand(Command):
     def length(self):
         return struct.unpack('!HH', self.payload)[1]
 
+
 class DumpTilesCommand(Command):
     code = Commands.DUMP_TILES_COMMAND.value
 
+
 class UpdateTilesCommand(Command):
     code = Commands.UPDATE_TILES_COMMAND.value
+
+
+class SetWatchpointCommand(Command):
+    code = Commands.SET_WATCHPOINT_COMMAND.value
+
+    def __init__(self, addr: int, read=False):
+        """Watch a region of memory. By default, only watch writes.
+
+        Args:
+            addr: Address to watch.
+            read: Also watch for reads.
+        """
+        super().__init__(struct.pack('!HH', addr, 1 if read else 0))
+        self.addr = addr
+        self.read = read
+
+    @classmethod
+    def deserialize(cls, payload):
+        addr, read = struct.unpack('!HH', payload)
+        return cls(addr, read == 1)
 
 
 commands = [
@@ -132,6 +161,7 @@ commands = [
     ReadMemoryCommand,
     DumpTilesCommand,
     UpdateTilesCommand,
+    SetWatchpointCommand,
 ]
 
 
@@ -144,7 +174,7 @@ class HitBreakpointResponse(Response):
     code = 0x01
 
     def __init__(self, addr: int):
-        self.payload = struct.pack('!H', addr)
+        super(Response, self).__init__(struct.pack('!H', addr))
 
     @classmethod
     def deserialize(cls, payload):
@@ -159,26 +189,34 @@ class ReadRegisterResponse(Response):
     code = 0x02
 
     def __init__(self, reg: str, value: int):
-        self.payload = struct.pack('!BB', reg, value)
+        super().__init__(self.encode_register(reg) + struct.pack('!H', value))
+        self.register = reg
+        self.value = value
 
     @classmethod
     def deserialize(cls, payload):
-        reg, value = struct.unpack('!BB', payload)
+        reg = payload[:2].decode('ascii').rstrip('\x00')
+        value, = struct.unpack('!H', payload[2:])
+        if reg not in REGISTERS:
+            raise ValueError(f'Invalid register {reg}')
         return cls(reg, value)
 
-    @property
-    def register(self):
-        return struct.unpack('!BB', self.payload)[0]
+    @staticmethod
+    def encode_register(reg: str) -> bytes:
+        if reg in SINGLE_REGISTERS:
+            return reg.encode('ascii') + b'\x00'
+        elif reg in DOUBLE_REGISTERS:
+            return reg.encode('ascii')
+        else:
+            raise ValueError(f'Invalid register {reg}')
 
-    @property
-    def value(self):
-        return struct.unpack('!BB', self.payload)[1]
 
 class ReadMemoryResponse(Response):
     code = 0x03
 
     def __init__(self, addr: int, values: bytes):
-        self.payload = struct.pack('!H{}B'.format(len(values)), addr, *values)
+        super(Response, self).__init__(
+            struct.pack('!H{}B'.format(len(values)), addr, *values))
 
     @classmethod
     def deserialize(cls, payload):
@@ -190,17 +228,31 @@ class ReadMemoryResponse(Response):
 
     @property
     def address(self):
-        nvalues = len(self.payload) - 2
-        return struct.unpack('!H{}B'.format(nvalues), self.payload)[0]
+        return struct.unpack_from('!H', self.payload)[0]
 
     @property
     def values(self):
-        nvalues = len(self.payload) - 2
-        return struct.unpack('!H{}B'.format(nvalues), self.payload)[1:]
+        return self.payload[2:]
+
+
+class HitWatchpointResponse(Response):
+    code = 0x04
+
+    def __init__(self, addr: int, value: int, read=False):
+        super().__init__(struct.pack('!HHH', addr, value, 1 if read else 0))
+        self.addr = addr
+        self.value = value
+        self.read = read
+
+    @classmethod
+    def deserialize(cls, payload):
+        addr, value, read = struct.unpack('!HHH', payload)
+        return cls(addr, value, read == 1)
 
 
 responses = [
     HitBreakpointResponse,
     ReadRegisterResponse,
     ReadMemoryResponse,
+    HitWatchpointResponse,
 ]

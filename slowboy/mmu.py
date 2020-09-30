@@ -2,8 +2,9 @@
 import logging
 
 from slowboy.gpu import GPU, VRAM_START, OAM_START
-from slowboy.interrupts import InterruptController
+from slowboy.interrupts import InterruptController, InterruptType
 from slowboy.timer import Timer
+
 
 JOYP_SELECT_BUTTON_MASK = 0x20
 JOYP_SELECT_DIRECTION_MASK = 0x10
@@ -30,6 +31,7 @@ class MMU():
         self.wram = bytearray(4*1024 + 4*1024)
         self.sprite_table = bytearray(160)
         self.hram = bytearray(127)
+        self._sound_mem = bytearray(0x40)
 
         self._joyp = 0
         self._buttons = {
@@ -45,8 +47,9 @@ class MMU():
 
         self._dma = 0
 
-        # Mapping of address to callback
-        self.watchpoints = {}
+        # Read watchpoints. Mapping of address to callback.
+        self._watchpoints_r = {}
+        self._watchpoints_w = {}
 
     def load_rom(self, romdata):
         self.rom = romdata
@@ -130,92 +133,95 @@ class MMU():
     def load_interrupt_controller(self, interrupt_controller: InterruptController):
         self.interrupt_controller = interrupt_controller
 
-    def get_addr(self, addr):
-        #if addr in self.watchpoints:
-        #    self.watchpoints[addr](addr, None)
+    def add_watchpoint(self, addr, read, cb):
+        self._watchpoints_w[addr] = cb
+        if read:
+            self._watchpoints_r[addr] = lambda value: cb(value, read=False)
 
+    def get_addr(self, addr):
         if addr < 0:
             # invalid
             raise ValueError('invalid address {:#04x}'.format(addr))
         elif addr < 0x4000:
             # ROM Bank 0 (16 KB)
-            return self.rom[addr]
+            val = self.rom[addr]
         elif addr < 0x8000:
             # ROM Bank 1+ (16 KB)
-            return self.rom[addr]
+            val = self.rom[addr]
         elif addr < 0xa000:
             # VRAM (8 KB)
-            return self.gpu.get_vram(addr - VRAM_START)
+            val = self.gpu.get_vram(addr - VRAM_START)
         elif addr < 0xc000:
             # cartridge RAM (8 KB)
-            return self.cartridge_ram[addr - 0xa000]
+            val = self.cartridge_ram[addr - 0xa000]
         elif addr < 0xd000:
             # WRAM 0 (4 KB)
-            return self.wram[addr - 0xc000]
+            val = self.wram[addr - 0xc000]
         elif addr < 0xe000:
             # WRAM 1 (4 KB)
-            return self.wram[addr - 0xc000]
+            val = self.wram[addr - 0xc000]
         elif addr < 0xfe00:
             # echo RAM 0xc000–ddff
-            return self.get_addr(addr - 0x2000)
+            val = self.get_addr(addr - 0x2000)
         elif addr < 0xfea0:
             # sprite table (OAM)
-            return self.gpu.get_oam(addr - OAM_START)
+            val = self.gpu.get_oam(addr - OAM_START)
         elif addr < 0xff00:
             # invalid
             self.logger.debug('read from invalid address %#04x', addr)
-            return 0
+            val = 0
             #raise ValueError('invalid address {}'.format(addr))
         elif addr < 0xff80:
             # IO
             if addr == 0xff00:
-                return self.joyp
-            elif addr == 0xff01 | addr == 0xff02:
+                # print(f'Read joypad {self.joyp:x}')
+                val = self.joyp
+            elif addr == 0xff01 or addr == 0xff02:
                 raise NotImplementedError('Serial transfer registers')
             elif addr == 0xff04:
-                return self.timer.div
+                val = self.timer.div
             elif addr == 0xff05:
-                return self.timer.tima
+                val = self.timer.tima
             elif addr == 0xff06:
-                return self.timer.tma
+                val = self.timer.tma
             elif addr == 0xff07:
-                return self.timer.tac
+                val = self.timer.tac
             elif addr == 0xff0f:
                 # IF
-                return self.interrupt_controller.if_
+                val = self.interrupt_controller.if_
             elif addr == 0xff10:
                 raise NotImplementedError('IF register')
             elif addr < 0xff40:
                 raise NotImplementedError('sound registers')
             elif addr == 0xff40:
-                return self.gpu.lcdc
+                val = self.gpu.lcdc
             elif addr == 0xff41:
-                return self.gpu.stat
+                val = self.gpu.stat
             elif addr == 0xff42:
-                return self.gpu.scy
+                val = self.gpu.scy
             elif addr == 0xff43:
-                return self.gpu.scx
+                val = self.gpu.scx
             elif addr == 0xff44:
-                return self.gpu.ly
+                val = self.gpu.ly
             elif addr == 0xff45:
-                return self.gpu.lyc
+                val = self.gpu.lyc
             elif addr == 0xff46:
-                return self.dma
+                val = self.dma
             elif addr == 0xff47:
-                return self.gpu.bgp
+                val = self.gpu.bgp
             elif addr == 0xff48:
-                return self.gpu.obp0
+                val = self.gpu.obp0
             elif addr == 0xff49:
-                return self.gpu.obp1
+                val = self.gpu.obp1
             elif addr == 0xff4a:
-                return self.gpu.wy
+                val = self.gpu.wy
             elif addr == 0xff4b:
-                return self.gpu.wx
+                val = self.gpu.wx
             else:
                 raise NotImplementedError('memory-mapped IO addr {}'.format(hex(addr)))
         elif addr < 0xffff:
             # HRAM
-            return self.hram[addr - 0xff80]
+            val = self.hram[addr - 0xff80]
         elif addr == 0xffff:
             # interrupt enable register
             # bit 0: v-blank interrupt
@@ -224,13 +230,17 @@ class MMU():
             # bit 3: serial interrupt
             # bit 4: joypad interrupt
             if self.interrupt_controller is not None:
-                return self.interrupt_controller.ie
+                val = self.interrupt_controller.ie
             else:
-                self.logger.warning('read from interrupt controller when there is '
-                               'not one loaded')
-                return 0
+                self.logger.warning('read from interrupt controller when there is not one loaded')
+                val = 0
         else:
             raise ValueError('invalid address {:#04x}'.format(addr))
+
+        if addr in self._watchpoints_r:
+            self._watchpoints_r[addr](val)
+
+        return val
 
     def set_addr(self, addr, value):
         value = value & 0xff
@@ -269,6 +279,7 @@ class MMU():
         elif addr < 0xff80:
             # IO 0xff00-0xff7f
             if addr == 0xff00:
+                # print(f'Write joypad {value:x}')
                 self.joyp = value
             elif addr == 0xff01 | addr == 0xff02:
                 raise NotImplementedError('Serial transfer registers')
@@ -284,7 +295,9 @@ class MMU():
                 # IF
                 self.interrupt_controller.if_ = value
             elif addr < 0xff40:
-                self.logger.warn('not implemented: sound registers')
+                self._sound_mem[addr-0xff10] = value
+                # TODO
+                # self.logger.warn('not implemented: sound registers %#04x, %#04x', addr, value)
             elif addr == 0xff40:
                 self.gpu.lcdc = value
             elif addr == 0xff41:
@@ -324,47 +337,52 @@ class MMU():
             if self.interrupt_controller is not None:
                 self.interrupt_controller.ie = value
             else:
-                self.logger.warning('write to interrupt controller when there '
-                                    'is not one loaded')
+                self.logger.warning('write to interrupt controller when there is not one loaded')
         else:
             raise ValueError('invalid address {:#04x}'.format(hex(addr)))
 
+        if addr in self._watchpoints_w:
+            self._watchpoints_w[addr](value)
+
     @property
     def joyp(self):
-        joyp = self._joyp & 0xf0
-        if joyp & JOYP_SELECT_BUTTON_MASK:
-            if not self._buttons['down']:
-                joyp |= 0x08
-            if not self._buttons['up']:
-                joyp |= 0x04
-            if not self._buttons['left']:
-                joyp |= 0x02
-            if not self._buttons['right']:
-                joyp |= 0x01
-        if joyp & JOYP_SELECT_DIRECTION_MASK:
-            if not self._buttons['start']:
-                joyp |= 0x08
-            else:
-                pass
-            if not self._buttons['select']:
-                joyp |= 0x04
-            if not self._buttons['b']:
-                joyp |= 0x02
-            if not self._buttons['a']:
-                joyp |= 0x01
-        return joyp
+        joyp = (self._joyp & 0x30) | 0x0f
+        buttons = 0
+        if joyp & JOYP_SELECT_BUTTON_MASK == 0:
+            if self._buttons['down']:
+                buttons |= 0x08
+            if self._buttons['up']:
+                buttons |= 0x04
+            if self._buttons['left']:
+                buttons |= 0x02
+            if self._buttons['right']:
+                buttons |= 0x01
+        elif joyp & JOYP_SELECT_DIRECTION_MASK == 0:
+            if self._buttons['start']:
+                buttons |= 0x08
+            if self._buttons['select']:
+                buttons |= 0x04
+            if self._buttons['b']:
+                buttons |= 0x02
+            if self._buttons['a']:
+                buttons |= 0x01
+        return joyp & ~buttons
 
     @joyp.setter
     def joyp(self, value):
+        # Program can only write bits 4 and 5. Bit 4 (active low) selects start/select/B/A, while
+        # bit 5 (active low) selects down/up/left/right.
         self._joyp = value & 0x30
 
     def press_button(self, button: str):
+        if not self._buttons[button]:
+            self.interrupt_controller.notify_interrupt(InterruptType.joypad)
+            self._buttons[button] = True
         print(button, 'DOWN', hex(self.joyp))
-        self._buttons[button] = True
 
     def unpress_button(self, button: str):
-        print(button, 'UP', hex(self.joyp))
         self._buttons[button] = False
+        print(button, 'UP', hex(self.joyp))
 
     @property
     def dma(self):

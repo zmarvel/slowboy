@@ -47,7 +47,6 @@ class MessageProtocol(asyncio.Protocol):
         a message. Calls decode_message to get an object from the serialized
         data, and adds the object to the queue.
         """
-        print('received {} bytes: {}'.format(len(data), data))
         if self.rx_state == self.RxState.WAITING and len(data) > 0:
             # The message could be segmented
             buffered_len = len(self._rx_buffer)
@@ -56,7 +55,6 @@ class MessageProtocol(asyncio.Protocol):
                 data = data[len(self._rx_buffer):]
             if len(self._rx_buffer) == 4:
                 self._rx_code, = struct.unpack('!L', self._rx_buffer)
-                print('got code {}'.format(self._rx_code))
                 self.rx_state = self.RxState.GOT_CODE
                 self._rx_buffer = bytes()
         if self.rx_state == self.RxState.GOT_CODE and len(data) > 0:
@@ -66,7 +64,6 @@ class MessageProtocol(asyncio.Protocol):
                 data = data[len(self._rx_buffer):]
             if len(self._rx_buffer) == 4:
                 self._rx_size, = struct.unpack('!L', self._rx_buffer)
-                print('got size', self._rx_size)
                 self.rx_state = self.RxState.GOT_SIZE
                 self._rx_buffer = bytes()
         if self.rx_state == self.RxState.GOT_SIZE:
@@ -82,7 +79,6 @@ class MessageProtocol(asyncio.Protocol):
         if self.rx_state == self.RxState.GOT_PAYLOAD:
             resp = self.decode_message(self._rx_code, self._rx_size,
                                         self._rx_payload)
-            print('got payload {}'.format(resp))
             self.rx_queue.put_nowait(resp)
             self.rx_state = self.RxState.WAITING
             self._rx_code = -1

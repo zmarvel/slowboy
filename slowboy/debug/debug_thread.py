@@ -12,7 +12,8 @@ from slowboy.debug.messages import (Command, ShutdownCommand, StepCommand,
                                     ReadRegisterCommand, ReadMemoryCommand,
                                     DumpTilesCommand, UpdateTilesCommand,
                                     Response, ReadRegisterResponse,
-                                    commands)
+                                    commands, ReadMemoryResponse, SetWatchpointCommand,
+                                    HitWatchpointResponse)
 from slowboy.debug.exceptions import UnrecognizedCommandException 
 
 
@@ -61,38 +62,48 @@ class DebugMessageReceiver(MessageHandler):
             pass
         elif msg.code == StepCommand.code:
             # TODO this is probably not atomic
+            self.cpu.step = True
             self.cpu.trace = True
         elif msg.code == ContinueCommand.code:
+            self.cpu.step = False
             self.cpu.trace = False
-        elif msg.code == SetBreakpointCommand.code:
+        elif isinstance(msg, SetBreakpointCommand):
             self.cpu.set_breakpoint(msg.address)
-        elif msg.code == ReadRegisterCommand.code:
-            value = self.cpu.read_register(ReadRegisterCommand.decode_register(
-                msg.register))
+        elif isinstance(msg, ReadRegisterCommand):
+            value = self.cpu.read_register(msg.register)
             self.resp_queue.put_nowait(
                 ReadRegisterResponse(msg.register, value))
-        elif msg.code == ReadMemoryCommand.code:
+        elif isinstance(msg, ReadMemoryCommand):
             addr = msg.address
             length = msg.length
-            for i in range(addr, length):
-                print(self.cpu.mmu.get_addr(addr))
+            buf = bytearray(length)
+            for i in range(length):
+                buf[i] = self.cpu.mmu.get_addr(addr+i)
+            self.resp_queue.put_nowait(
+                ReadMemoryResponse(addr, bytes(buf)))
         elif msg.code == DumpTilesCommand.code:
             print('Dumping GPU tiles')
-            self.cpu.gpu.dump_tileset('tileset.bmp')
-            self.cpu.gpu.dump_background('background.bmp')
-            self.cpu.gpu.dump_foreground('foreground.bmp')
-            buf = bytearray(0x1800)
-            self.cpu.gpu.dump_tile_memory(buf)
-            self.dump_mem(buf, 0x8000)
+            # self.cpu.gpu.dump_tileset('tileset.bmp')
+            # self.cpu.gpu.dump_background('background.bmp')
+            # self.cpu.gpu.dump_foreground('foreground.bmp')
+            # buf = bytearray(0x1800)
+            # self.cpu.gpu.dump_tile_memory(buf)
+            # self.dump_mem(buf, 0x8000)
             self.cpu.gpu.dump_regs()
         elif msg.code == UpdateTilesCommand.code:
             for i in range(128):
                 self.cpu.gpu._update_tile(i)
+        elif isinstance(msg, SetWatchpointCommand):
+            self.cpu.mmu.add_watchpoint(msg.addr, msg.read, partial(self.hit_watchpoint, msg.addr))
         else:
             raise UnrecognizedCommandException()
 
-
-
+    def hit_watchpoint(self, addr, value, read=False):
+        # Called from the "main" (UI) thread's context, so we can't just touch resp_queue directly
+        self.loop.call_soon_threadsafe(
+            lambda: self.resp_queue.put_nowait(HitWatchpointResponse(addr, value, read)))
+        # Now put the CPU in trace mode
+        self.cpu.trace = True
 
 
 class DebugMessageSender(MessageHandler):
@@ -101,7 +112,6 @@ class DebugMessageSender(MessageHandler):
         self.protocol_list = protocol_list
 
     def handle_message(self, msg: Response):
-        print('DebugMessageSender got', msg)
         for protocol in self.protocol_list:
             protocol.send_message(msg)
 
@@ -127,6 +137,8 @@ class DebugThread(threading.Thread):
     def stop(self):
         print('DebugThread begins shutdown')
         self.loop.call_soon_threadsafe(self.sender.stop)
+        self.loop.call_soon_threadsafe(self.receiver.stop)
+        self.loop.call_soon_threadsafe(self.server.close)
 
     def run(self):
         print('DebugThread started')
@@ -139,26 +151,17 @@ class DebugThread(threading.Thread):
                                           lambda p: protocols.append(p)),
                                   host=host, port=port,
                                   reuse_address=True)
-        server = loop.run_until_complete(coro)
-        self.server = server
+        self.server = loop.run_until_complete(coro)
 
-        receiver = DebugMessageReceiver(loop, self.cmd_q, self.resp_q, self.cpu)
-        receiver_task = receiver.start()
-        #receiver_task = self.start()
-        #register_shutdown_callback(lambda: self.server.close())
-        #register_shutdown_callback(lambda: self.loop.stop())
-        sender = DebugMessageSender(loop, self.resp_q, protocols)
-        sender_task = sender.start()
-        sender.register_shutdown_callback(lambda: server.close())
-        sender.register_shutdown_callback(lambda: loop.stop())
-        self.sender = sender
+        self.receiver = DebugMessageReceiver(loop, self.cmd_q, self.resp_q, self.cpu)
+        receiver_task = self.receiver.start()
+        self.sender = DebugMessageSender(loop, self.resp_q, protocols)
+        sender_task = self.sender.start()
 
         print('DebugServer started on {}'.format(self.debug_address))
 
-        #loop.run_forever()
         asyncio.gather(sender_task, receiver_task, loop=loop)
-        loop.run_until_complete(server.wait_closed())
+        loop.run_until_complete(self.server.wait_closed())
 
         print('DebugThread finished')
-
 
